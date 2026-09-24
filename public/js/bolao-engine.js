@@ -188,9 +188,17 @@ const BolaoEngine = {
       premioSenaLiquido,
       premioSenaPrevisto,
       
-      // Compatibilidade
-      premioLiquidoArrecadado: totalLiquidoGeralArrecadado
     };
+  },
+
+  /**
+   * Calcula o prêmio padrão da Quadra como 10% do valor líquido da arrecadação
+   * Líquido = (Total Apostas * Valor Cota) * (1 - Taxa Organizador)
+   */
+  calcularPremioQuadraPadrao(totalApostas = 0, valorCota = 24.0, percentualOrganizador = 0.20) {
+    const bruto = totalApostas * valorCota;
+    const liquido = bruto * (1 - percentualOrganizador);
+    return Math.round(liquido * 0.10);
   },
 
   compararComCicloAnterior(apostasBase = [], novasApostas = []) {

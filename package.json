@@ -8,7 +8,16 @@
     "start": "node server.js",
     "dev": "node server.js"
   },
-  "keywords": ["mega-sena", "bolao", "loterias", "gestao"],
+  "keywords": [
+    "mega-sena",
+    "bolao",
+    "loterias",
+    "gestao"
+  ],
   "author": "SenaClube Team",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.117.1",
+    "dotenv": "^18.0.3"
+  }
 }

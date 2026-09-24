@@ -280,9 +280,12 @@
         </div>
 
         <div class="form-group">
-          <label for="novo-ciclo-premio-quadra">Prêmio da Quadra (1º Sorteio) (R$)</label>
-          <input type="number" id="novo-ciclo-premio-quadra" step="100" min="0" placeholder="Ex: 5000.00" value="0">
-          <small class="form-hint">Se alguém acertar a quadra no 1º sorteio, este valor será pago e deduzido do prêmio total.</small>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <label for="novo-ciclo-premio-quadra" style="margin-bottom: 0;">Prêmio da Quadra (1º Sorteio) (R$)</label>
+            <button type="button" id="btn-recalc-quadra-novo" class="btn btn-xs btn-outline" style="font-size: 0.72rem; padding: 2px 8px;" title="Recalcular automaticamente 10% do valor líquido">⚡ 10% do Líquido</button>
+          </div>
+          <input type="number" id="novo-ciclo-premio-quadra" step="any" min="0" placeholder="Ex: 5000.00" value="0">
+          <small class="form-hint">Padrão automático: <strong>10% do valor líquido</strong> das apostas (editável manualmente a qualquer momento).</small>
         </div>
 
         <div class="form-group">
@@ -492,15 +495,24 @@
               <small class="form-hint">Padrão: 20% deduzido do total arrecadado bruto.</small>
             </div>
             <div class="form-group">
-              <label for="config-premio-quadra">Prêmio da Quadra (1º Sorteio) (R$)</label>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <label for="config-premio-quadra" style="margin-bottom: 0;">Prêmio da Quadra (1º Sorteio) (R$)</label>
+                <button type="button" id="btn-recalc-quadra-config" class="btn btn-xs btn-outline" style="font-size: 0.72rem; padding: 2px 8px;" title="Recalcular automaticamente 10% do valor líquido atual">⚡ 10% do Líquido</button>
+              </div>
               <input type="number" id="config-premio-quadra" step="any" min="0" placeholder="Ex: 5000.00" value="0">
-              <small class="form-hint">Se houver ganhador da quadra na abertura, este valor é retirado do prêmio total.</small>
+              <small class="form-hint">Padrão: 10% do valor líquido. Você pode alterar manualmente a qualquer momento.</small>
             </div>
           </div>
 
           <div class="danger-zone">
             <h4>⚠️ Zona de Reinicialização & Manutenção</h4>
             <div class="danger-zone-grid">
+              <div class="danger-item">
+                <p>Importar / copiar todas as apostas do ciclo imediatamente anterior para este ciclo:</p>
+                <button type="button" id="btn-copiar-apostas-anterior" class="btn btn-sm btn-outline">
+                  📋 Copiar Apostas do Ciclo Anterior
+                </button>
+              </div>
               <div class="danger-item">
                 <p>Zerar os sorteios apurados do ciclo atual (mantendo participantes e cotas):</p>
                 <button type="button" id="btn-zerar-ciclo" class="btn btn-sm btn-danger-outline">
@@ -531,22 +543,52 @@
     </div>
   </div>
 
-  <!-- Modal: Relatório Formatado para WhatsApp -->
+  <!-- Modal: Relatório & Mensagens para WhatsApp -->
   <div id="modal-relatorio" class="modal-overlay hidden">
     <div class="modal-card modal-lg">
       <div class="modal-header">
         <div class="modal-title-wrap">
           <span class="modal-badge-whatsapp">WhatsApp</span>
-          <h3>Relatório Formatado para Grupos</h3>
+          <h3>Central de Mensagens & Relatórios para WhatsApp</h3>
         </div>
         <button class="modal-close" data-close="modal-relatorio">&times;</button>
       </div>
       <div class="modal-body">
-        <p class="modal-desc">
-          Texto já estruturado com a dedução dos 20% do organizador, premiação da quadra e da sena, ranking dos líderes e status das cotas.
+        <div class="finalizar-tabs-row" style="margin-bottom: 14px;">
+          <button type="button" class="finalizar-tab-btn active msg-tab-btn" data-msg-tab="boletim">
+            📊 Boletim de Apuração
+          </button>
+          <button type="button" class="finalizar-tab-btn msg-tab-btn" data-msg-tab="abertura-padrao">
+            📢 Abertura de Novo Bolão
+          </button>
+          <button type="button" class="finalizar-tab-btn msg-tab-btn" data-msg-tab="lembrete-fechamento">
+            ⏰ Lembrete de Encerramento
+          </button>
+        </div>
+
+        <!-- Painel de Customização de Datas / Chave Pix -->
+        <div id="msg-custom-params" class="hidden" style="background: var(--bg-surface-elevated); padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); margin-bottom: 12px;">
+          <div class="form-row" style="margin-bottom: 0;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label for="msg-param-inicio" style="font-size: 0.75rem;">Data do 1º Sorteio</label>
+              <input type="text" id="msg-param-inicio" placeholder="Ex: Terça-feira (06/10)" value="Terça-feira (06/10)" style="font-size: 0.85rem; padding: 6px 10px;">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label for="msg-param-encerramento" style="font-size: 0.75rem;">Encerramento das Apostas</label>
+              <input type="text" id="msg-param-encerramento" placeholder="Ex: Domingo (04/10) até as 20h" value="Domingo (04/10) até as 20h" style="font-size: 0.85rem; padding: 6px 10px;">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label for="msg-param-pix" style="font-size: 0.75rem;">Chave Pix (Opcional)</label>
+              <input type="text" id="msg-param-pix" placeholder="Ex: telefone / e-mail / CPF" style="font-size: 0.85rem; padding: 6px 10px;">
+            </div>
+          </div>
+        </div>
+
+        <p class="modal-desc" id="msg-tab-desc">
+          Texto já formatado com o ranking de acertos, premiação líquida da sena e da quadra (sem dados brutos ou taxas).
         </p>
 
-        <textarea id="relatorio-whatsapp-text" class="relatorio-textarea" readonly rows="13"></textarea>
+        <textarea id="relatorio-whatsapp-text" class="relatorio-textarea" readonly rows="12"></textarea>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-close="modal-relatorio">Fechar</button>
@@ -761,6 +803,17 @@
             </p>
           </div>
         </div>
+
+        <!-- Alerta de Apostas Travadas Permanentemente -->
+        <div id="finalizar-locked-alert" class="finalizar-alert-box hidden" style="background: rgba(239, 68, 68, 0.12); border: 1px solid #ef4444; color: #fca5a5;">
+          <span style="font-size: 1.4rem;">🔒</span>
+          <div>
+            <strong>Apostas Travadas Permanentemente:</strong>
+            <p style="margin: 0; font-size: 0.82rem; color: #fca5a5;">
+              As apostas deste ciclo estão encerradas e blindadas. Em conformidade com a regra de integridade, <strong>nenhuma aposta pode ser adicionada, alterada ou excluída</strong>, nem mesmo pelo administrador.
+            </p>
+          </div>
+        </div>
       </div>
 
       <div class="modal-footer">
@@ -768,9 +821,9 @@
         <button type="button" id="btn-confirmar-fechamento-apostas" class="btn btn-warning btn-lg">
           🔒 Confirmar Fechamento e Excluir Desistentes
         </button>
-        <button type="button" id="btn-reabrir-inscricoes-ciclo" class="btn btn-primary btn-lg hidden">
-          🔓 Reabrir Inscrições do Ciclo
-        </button>
+        <div id="badge-fechado-permanente" class="hidden" style="display: inline-flex; align-items: center; gap: 8px; color: #fca5a5; font-size: 0.85rem; font-weight: 600; padding: 8px 14px; border-radius: 8px; background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.4);">
+          🔒 Apostas Fechadas & Travadas
+        </div>
       </div>
     </div>
   </div>
@@ -817,10 +870,10 @@
   </div>
 
   <!-- Scripts Modulares -->
-  <script src="js/caixa-api.js"></script>
-  <script src="js/whatsapp-parser.js"></script>
-  <script src="js/bolao-engine.js"></script>
-  <script src="js/export-share.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/caixa-api.js?v=2.5"></script>
+  <script src="js/whatsapp-parser.js?v=2.5"></script>
+  <script src="js/bolao-engine.js?v=2.5"></script>
+  <script src="js/export-share.js?v=2.5"></script>
+  <script src="js/app.js?v=2.5"></script>
 </body>
 </html>

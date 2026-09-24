@@ -67,12 +67,10 @@ const ExportShare = {
       });
     }
 
-    // Resumo financeiro transparente com os 20% do organizador e dedução da Quadra
+    // Resumo financeiro enxuto para grupos (sem Arrecadação Bruta, sem Taxa do Organizador e sem Pagas/Pendentes)
     msg += `\n━━━━━━━━━━━━━━━━━━━━━\n`;
     msg += `👥 *Total de Apostas:* ${financeiro.totalApostas} (${financeiro.totalApostadores} amigos)\n`;
     msg += `💰 *Valor da Cota:* R$ ${financeiro.valorCota.toFixed(2).replace('.', ',')}\n`;
-    msg += `💵 *Arrecadação Bruta:* R$ ${financeiro.totalArrecadadoBruto.toFixed(2).replace('.', ',')}\n`;
-    msg += `💼 *Taxa do Organizador (20%):* R$ ${financeiro.valorOrganizadorArrecadado.toFixed(2).replace('.', ',')}\n`;
     msg += `💰 *Total Líquido do Bolão:* R$ ${financeiro.totalLiquidoGeralArrecadado.toFixed(2).replace('.', ',')}\n`;
     
     if (financeiro.valorPagoQuadra > 0) {
@@ -84,10 +82,72 @@ const ExportShare = {
     } else {
       msg += `🏆 *Prêmio da Sena:* R$ ${financeiro.premioSenaLiquido.toFixed(2).replace('.', ',')}\n`;
     }
-
-    msg += `✅ *Pagas:* ${financeiro.pagas} | ⏳ *Pendentes:* ${financeiro.pendentes}\n\n`;
+    msg += `\n`;
     msg += `📲 *Acompanhe as cartelas atualizadas no SenaClube!* Boa sorte a todos! 🍀`;
 
+    return msg;
+  },
+
+
+
+  /**
+   * Modelo Padrão de Abertura de Novo Bolão
+   */
+  gerarMensagemAberturaPadrao(params = {}) {
+    const nomeBolao = params.nomeBolao || 'Bolão entre Amigos';
+    const cicloNome = params.cicloNome || 'Novo Ciclo';
+    const concursoInicial = params.concursoInicial || '3061';
+    const dataInicio = params.dataInicio || 'Terça-feira';
+    const dataEncerramento = params.dataEncerramento || 'Domingo às 20h';
+    const valorCota = params.valorCota ? `R$ ${Number(params.valorCota).toFixed(2).replace('.', ',')}` : 'R$ 30,00';
+    const chavePix = params.chavePix || '';
+    const premioQuadra = params.premioQuadra ? `R$ ${Number(params.premioQuadra).toFixed(2).replace('.', ',')}` : '';
+
+    let msg = `🍀 *ATENÇÃO PESSOAL — INSCRIÇÕES ABERTAS!* 🍀\n`;
+    msg += `🏆 *${nomeBolao.toUpperCase()} — ${cicloNome.toUpperCase()}*\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    msg += `Fala, amigos! Está oficialmente aberto o período de apostas e renovações para o nosso próximo bolão da Mega-Sena!\n\n`;
+    msg += `📌 *Concurso Inicial:* ${concursoInicial}\n`;
+    msg += `🗓️ *Primeiro Sorteio:* ${dataInicio}\n`;
+    msg += `⏰ *Prazo Limite para Apostas:* ${dataEncerramento}\n`;
+    msg += `💰 *Valor por Jogo/Cota:* ${valorCota}\n`;
+    
+    if (premioQuadra) {
+      msg += `🎯 *Prêmio Especial da Quadra (1º Sorteio):* ${premioQuadra}\n`;
+    }
+    
+    if (chavePix) {
+      msg += `🔑 *Chave Pix:* ${chavePix}\n`;
+    }
+    
+    msg += `\n📝 *COMO PARTICIPAR:*\n`;
+    msg += `1️⃣ Envie suas 6 dezenas no grupo ou confirme que mantém seu jogo anterior.\n`;
+    msg += `2️⃣ Realize o Pix da sua cota e envie o comprovante.\n`;
+    msg += `3️⃣ Após o prazo, o sistema travará as apostas e nenhum jogo poderá ser alterado!\n\n`;
+    msg += `Boa sorte a todos, vamos buscar essa Sena juntos! 💰🚀`;
+    return msg;
+  },
+
+  /**
+   * Modelo de Lembrete / Contagem Regressiva de Fechamento de Apostas
+   */
+  gerarMensagemLembreteFechamento(params = {}) {
+    const nomeBolao = params.nomeBolao || 'Bolão entre Amigos';
+    const dataEncerramento = params.dataEncerramento || 'HOJE às 20h';
+    const chavePix = params.chavePix || '';
+
+    let msg = `🚨 *ÚLTIMO AVISO — AS APOSTAS VÃO FECHAR!* ⏰\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `Amigos do *${nomeBolao}*, estamos nos momentos finais para encerramento das inscrições!\n\n`;
+    msg += `⏳ *Prazo Final Impreterível:* ${dataEncerramento}\n\n`;
+    msg += `⚠️ *Atenção à Regra de Ouro:*\n`;
+    msg += `Assim que as apostas forem finalizadas no sistema, elas serão *travadas de forma permanente* — nenhuma aposta poderá ser incluída ou alterada nem mesmo pelo administrador!\n\n`;
+    
+    if (chavePix) {
+      msg += `🔑 *Chave Pix:* ${chavePix}\n\n`;
+    }
+
+    msg += `Quem não confirmou ou não enviou o comprovante, corre que ainda dá tempo! 🏃‍♂️💨🍀`;
     return msg;
   },
 
