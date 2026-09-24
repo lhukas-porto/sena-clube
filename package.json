@@ -1,0 +1,14 @@
+{
+  "name": "senaclube",
+  "version": "1.0.0",
+  "description": "Sistema de Gestão e Apuração de Bolão da Mega-Sena entre amigos",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": ["mega-sena", "bolao", "loterias", "gestao"],
+  "author": "SenaClube Team",
+  "license": "MIT"
+}
