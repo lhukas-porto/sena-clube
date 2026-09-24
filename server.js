@@ -1,7 +1,9 @@
+import 'dotenv/config';
 import http from 'http';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createClient } from '@supabase/supabase-js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -10,6 +12,19 @@ const PORT = process.env.PORT || 3333;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const DATA_DIR = path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'senaclube.json');
+
+// Supabase Client
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+let supabase = null;
+if (supabaseUrl && supabaseKey) {
+  try {
+    supabase = createClient(supabaseUrl, supabaseKey);
+    console.log('[SenaClube] Supabase conectado com sucesso em:', supabaseUrl);
+  } catch (err) {
+    console.warn('[SenaClube] Erro ao instanciar Supabase:', err.message);
+  }
+}
 
 // Garante que o diretório de dados exista
 if (!fs.existsSync(DATA_DIR)) {
@@ -124,38 +139,85 @@ const server = http.createServer(async (req, res) => {
   // --- API: Salvar ou carregar estado do bolão ---
   if (pathname === '/api/bolao') {
     if (req.method === 'GET') {
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+
+      if (supabase) {
+        try {
+          const { data, error } = await supabase
+            .from('bolao_data')
+            .select('*')
+            .eq('id', 'sena_clube_master')
+            .single();
+
+          if (!error && data && data.estado_json) {
+            res.writeHead(200);
+            return res.end(JSON.stringify(data.estado_json));
+          }
+          if (error && error.code !== 'PGRST116') {
+            console.warn('[Supabase GET] Aviso:', error.message);
+          }
+        } catch (err) {
+          console.error('[Supabase GET] Erro de conexão:', err.message);
+        }
+      }
+
       try {
         if (fs.existsSync(DATA_FILE)) {
           const content = fs.readFileSync(DATA_FILE, 'utf-8');
-          res.writeHead(200, {
-            'Content-Type': 'application/json; charset=utf-8',
-            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate'
-          });
-          res.end(content);
+          res.writeHead(200);
+          return res.end(content);
         } else {
-          res.writeHead(200, {
-            'Content-Type': 'application/json; charset=utf-8',
-            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate'
-          });
-          res.end(JSON.stringify({ exists: false, data: null }));
+          res.writeHead(200);
+          return res.end(JSON.stringify({ exists: false, data: null }));
         }
       } catch (err) {
         console.error('[SenaClube] Erro ao carregar dados:', err);
-        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify({ error: err.message }));
+        res.writeHead(500);
+        return res.end(JSON.stringify({ error: err.message }));
       }
-      return;
     }
 
     if (req.method === 'POST') {
       let body = '';
       req.on('data', chunk => { body += chunk; });
-      req.on('end', () => {
+      req.on('end', async () => {
         try {
           const parsed = JSON.parse(body);
           parsed.savedAt = new Date().toISOString();
-          fs.writeFileSync(DATA_FILE, JSON.stringify(parsed, null, 2), 'utf-8');
-          console.log(`[SenaClube] Dados salvos com sucesso no backend às ${parsed.savedAt}:`, {
+
+          // Tenta salvar localmente
+          try {
+            if (fs.existsSync(DATA_DIR)) {
+              fs.writeFileSync(DATA_FILE, JSON.stringify(parsed, null, 2), 'utf-8');
+            }
+          } catch (localErr) {
+            console.warn('[SenaClube] Aviso de gravação local em disco:', localErr.message);
+          }
+
+          // Salva no Supabase se disponível
+          if (supabase) {
+            try {
+              const { error } = await supabase
+                .from('bolao_data')
+                .upsert({
+                  id: 'sena_clube_master',
+                  nome_bolao: parsed.nomeBolao || 'Bolão Mega Sena dos amigos',
+                  taxa_organizador_global: parsed.taxaOrganizadorGlobal || 0.20,
+                  ciclo_visualizado_id: parsed.cicloVisualizadoId || 1,
+                  estado_json: parsed,
+                  updated_at: new Date().toISOString()
+                }, { onConflict: 'id' });
+
+              if (error) {
+                console.error('[Supabase POST] Erro upsert:', error.message);
+              }
+            } catch (supErr) {
+              console.error('[Supabase POST] Erro de rede:', supErr.message);
+            }
+          }
+
+          console.log(`[SenaClube] Dados salvos com sucesso às ${parsed.savedAt}:`, {
             nomeBolao: parsed.nomeBolao,
             ciclos: parsed.ciclos?.length,
             cota: parsed.ciclos?.[0]?.valorCota,
