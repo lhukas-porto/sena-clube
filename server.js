@@ -73,7 +73,9 @@ async function fetchCaixaConcurso(numero = null) {
       signal: controller.signal,
       headers: {
         'Accept': 'application/json, text/plain, */*',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Referer': 'https://loterias.caixa.gov.br/',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
       }
     });
     clearTimeout(timeout);
@@ -97,7 +99,29 @@ async function fetchCaixaConcurso(numero = null) {
     return result;
   } catch (err) {
     clearTimeout(timeout);
-    console.warn(`[Caixa API] Falha na busca (${url}):`, err.message);
+    console.warn(`[Caixa API] Falha na busca primária (${url}):`, err.message);
+    try {
+      const mirrorUrl = numero
+        ? `https://loteriascaixa-api.herokuapp.com/api/megasena/${numero}`
+        : `https://loteriascaixa-api.herokuapp.com/api/megasena/latest`;
+      const mirrorRes = await fetch(mirrorUrl);
+      if (mirrorRes.ok) {
+        const mData = await mirrorRes.json();
+        const fallbackResult = {
+          numero: mData.concurso || mData.numero,
+          dataApuracao: mData.data || mData.dataApuracao || '',
+          dezenas: mData.dezenas || [],
+          acumulado: mData.acumulou || false,
+          valorAcumuladoProximoConcurso: mData.valorAcumuladoProximoConcurso || 0,
+          nomeMunicipioUFSorteio: mData.local || '',
+          fonte: 'espelho_loterias'
+        };
+        CAIXA_CACHE.set(cacheKey, { timestamp: Date.now(), data: fallbackResult });
+        return fallbackResult;
+      }
+    } catch (mirrorErr) {
+      console.warn('[Caixa API] Falha no espelho secundário:', mirrorErr.message);
+    }
     throw err;
   }
 }
