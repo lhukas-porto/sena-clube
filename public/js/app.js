@@ -12,7 +12,9 @@ const state = {
   cicloVisualizadoId: 1,
   ciclos: [],
   chavePix: '(61) 99627-2630',
+  celularOrganizador: '(61) 99627-2630',
   linkGrupoWhatsApp: 'https://chat.whatsapp.com/KT4gbhyKUUrBqW9fU2ZGpv',
+  urlSiteAcesso: 'https://sena-clube.vercel.app',
   textosWhatsAppCustomizados: {},
   abaMensagemWhatsAppAtiva: 'boletim',
   filtroAtual: 'todos',
@@ -109,7 +111,9 @@ async function salvarEstado() {
     cicloVisualizadoId: state.cicloVisualizadoId,
     ciclos: state.ciclos,
     chavePix: state.chavePix || '(61) 99627-2630',
+    celularOrganizador: state.celularOrganizador || '(61) 99627-2630',
     linkGrupoWhatsApp: state.linkGrupoWhatsApp || 'https://chat.whatsapp.com/KT4gbhyKUUrBqW9fU2ZGpv',
+    urlSiteAcesso: state.urlSiteAcesso || 'https://sena-clube.vercel.app',
     textosWhatsAppCustomizados: state.textosWhatsAppCustomizados || {}
   };
 
@@ -147,7 +151,9 @@ async function carregarEstado() {
         if (data.nomeBolao) state.nomeBolao = data.nomeBolao;
         if (typeof data.taxaOrganizadorGlobal === 'number') state.taxaOrganizadorGlobal = data.taxaOrganizadorGlobal;
         if (data.chavePix) state.chavePix = data.chavePix;
+        if (data.celularOrganizador) state.celularOrganizador = data.celularOrganizador;
         if (data.linkGrupoWhatsApp) state.linkGrupoWhatsApp = data.linkGrupoWhatsApp;
+        if (data.urlSiteAcesso) state.urlSiteAcesso = data.urlSiteAcesso;
         if (data.textosWhatsAppCustomizados && typeof data.textosWhatsAppCustomizados === 'object') {
           state.textosWhatsAppCustomizados = Object.assign({}, state.textosWhatsAppCustomizados, data.textosWhatsAppCustomizados);
           try {
@@ -1216,8 +1222,14 @@ function setupEventListeners() {
     if (document.getElementById('config-pix')) {
       document.getElementById('config-pix').value = state.chavePix || '';
     }
+    if (document.getElementById('config-celular')) {
+      document.getElementById('config-celular').value = state.celularOrganizador || '';
+    }
     if (document.getElementById('config-whatsapp-grupo')) {
       document.getElementById('config-whatsapp-grupo').value = state.linkGrupoWhatsApp || '';
+    }
+    if (document.getElementById('config-site-app')) {
+      document.getElementById('config-site-app').value = state.urlSiteAcesso || '';
     }
     abrirModal('modal-config');
   });
@@ -1658,15 +1670,18 @@ function setupEventListeners() {
       // Prêmio da Quadra
       ciclo.premioQuadra = parseFloat(document.getElementById('config-premio-quadra').value) || 0.0;
 
-      // Chave PIX e Link do Grupo
+      // Contatos, PIX e Links
       const pixInput = document.getElementById('config-pix');
-      if (pixInput && pixInput.value.trim()) {
-        state.chavePix = pixInput.value.trim();
-      }
+      if (pixInput) state.chavePix = pixInput.value.trim();
+
+      const celInput = document.getElementById('config-celular');
+      if (celInput) state.celularOrganizador = celInput.value.trim();
+
       const grupoInput = document.getElementById('config-whatsapp-grupo');
-      if (grupoInput && grupoInput.value.trim()) {
-        state.linkGrupoWhatsApp = grupoInput.value.trim();
-      }
+      if (grupoInput) state.linkGrupoWhatsApp = grupoInput.value.trim();
+
+      const siteInput = document.getElementById('config-site-app');
+      if (siteInput) state.urlSiteAcesso = siteInput.value.trim();
 
       const salvou = await salvarEstado();
       fecharModal('modal-config');
@@ -1877,18 +1892,18 @@ function setupEventListeners() {
       txtArea.value = ExportShare.gerarMensagemConviteCompleto({
         nomeBolao: state.nomeBolao || 'SenaClube',
         valorCota: ciclo.valorCota || 30.0,
-        whatsapp: state.chavePix || '(61) 99627-2630',
-        whatsappLink: `https://wa.me/55${(state.chavePix || '61996272630').replace(/\D/g, '')}`,
-        linkApp: 'https://sena-clube.vercel.app',
+        whatsapp: state.celularOrganizador || '(61) 99627-2630',
+        whatsappLink: `https://wa.me/55${(state.celularOrganizador || '61996272630').replace(/\D/g, '')}`,
+        linkApp: state.urlSiteAcesso || 'https://sena-clube.vercel.app',
         linkGrupoWhatsApp: state.linkGrupoWhatsApp || 'https://chat.whatsapp.com/KT4gbhyKUUrBqW9fU2ZGpv'
       });
     } else if (tabAtual === 'convite-rapido') {
       txtArea.value = ExportShare.gerarMensagemConviteRapido({
         nomeBolao: state.nomeBolao || 'Bolão entre Amigos',
         valorCota: ciclo.valorCota || 30.0,
-        whatsapp: state.chavePix || '(61) 99627-2630',
-        whatsappLink: `https://wa.me/55${(state.chavePix || '61996272630').replace(/\D/g, '')}`,
-        linkApp: 'https://sena-clube.vercel.app',
+        whatsapp: state.celularOrganizador || '(61) 99627-2630',
+        whatsappLink: `https://wa.me/55${(state.celularOrganizador || '61996272630').replace(/\D/g, '')}`,
+        linkApp: state.urlSiteAcesso || 'https://sena-clube.vercel.app',
         linkGrupoWhatsApp: state.linkGrupoWhatsApp || 'https://chat.whatsapp.com/KT4gbhyKUUrBqW9fU2ZGpv'
       });
     }
