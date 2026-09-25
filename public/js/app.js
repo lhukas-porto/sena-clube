@@ -22,7 +22,7 @@ const state = {
   taxaOrganizadorGlobal: 0.20,
   cicloVisualizadoId: 1,
   ciclos: [],
-  chavePix: '82885192100',
+  chavePix: '828.851.921-00',
   celularOrganizador: '(61) 99627-2630',
   linkGrupoWhatsApp: 'https://chat.whatsapp.com/KT4gbhyKUUrBqW9fU2ZGpv',
   urlSiteAcesso: 'https://sena-clube.vercel.app',
@@ -195,8 +195,8 @@ async function carregarEstado() {
           state.nomeBolao = String(data.nomeBolao).replace(/\bWM\b/gi, '').replace(/\s{2,}/g, ' ').trim() || 'Bolão dos amigos';
         }
         if (typeof data.taxaOrganizadorGlobal === 'number') state.taxaOrganizadorGlobal = data.taxaOrganizadorGlobal;
-        if (data.chavePix) state.chavePix = data.chavePix;
-        if (data.celularOrganizador) state.celularOrganizador = data.celularOrganizador;
+        if (data.chavePix) state.chavePix = (typeof MaskUtils !== 'undefined') ? MaskUtils.formatarChavePix(data.chavePix) : data.chavePix;
+        if (data.celularOrganizador) state.celularOrganizador = (typeof MaskUtils !== 'undefined') ? MaskUtils.formatarTelefone(data.celularOrganizador) : data.celularOrganizador;
         if (data.linkGrupoWhatsApp) state.linkGrupoWhatsApp = data.linkGrupoWhatsApp;
         if (data.urlSiteAcesso) state.urlSiteAcesso = data.urlSiteAcesso;
         if (data.textosWhatsAppCustomizados && typeof data.textosWhatsAppCustomizados === 'object') {
@@ -1054,8 +1054,8 @@ window.editarAposta = function(id) {
 
   document.getElementById('aposta-id').value = aposta.id;
   document.getElementById('aposta-nome').value = aposta.nome;
-  document.getElementById('aposta-pago').value = aposta.pago ? 'true' : 'false';
-  document.getElementById('aposta-telefone').value = aposta.observacao || '';
+  const obsVal = aposta.observacao || '';
+  document.getElementById('aposta-telefone').value = (typeof MaskUtils !== 'undefined') ? MaskUtils.formatarTelefoneOuTexto(obsVal) : obsVal;
 
   const inputs = document.querySelectorAll('#form-aposta .num-input');
   aposta.dezenas.forEach((d, idx) => {
@@ -1144,6 +1144,80 @@ function setupEventListeners() {
     });
   }
   configurarValidacaoNumerosJogos();
+
+  // Configura Máscaras em Tempo Real (CPF, Celular e Chave PIX)
+  function configurarMascarasInputs() {
+    if (typeof MaskUtils === 'undefined') return;
+
+    // 1. Chave PIX do Organizador
+    const configPix = document.getElementById('config-pix');
+    const badgePix = document.getElementById('badge-tipo-pix');
+    if (configPix) {
+      const atualizarBadgePix = () => {
+        if (!badgePix) return;
+        const tipo = MaskUtils.identificarTipoPix(configPix.value);
+        if (tipo === 'cpf') {
+          badgePix.textContent = '📄 CPF';
+          badgePix.style.color = '#10b981';
+          badgePix.style.background = 'rgba(16, 185, 129, 0.15)';
+          badgePix.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+        } else if (tipo === 'celular') {
+          badgePix.textContent = '📱 Celular';
+          badgePix.style.color = '#60a5fa';
+          badgePix.style.background = 'rgba(59, 130, 246, 0.15)';
+          badgePix.style.borderColor = 'rgba(59, 130, 246, 0.3)';
+        } else if (tipo === 'email') {
+          badgePix.textContent = '✉️ E-mail';
+          badgePix.style.color = '#a78bfa';
+          badgePix.style.background = 'rgba(167, 139, 250, 0.15)';
+          badgePix.style.borderColor = 'rgba(167, 139, 250, 0.3)';
+        } else if (tipo === 'cnpj') {
+          badgePix.textContent = '🏢 CNPJ';
+          badgePix.style.color = '#f59e0b';
+          badgePix.style.background = 'rgba(245, 158, 11, 0.15)';
+          badgePix.style.borderColor = 'rgba(245, 158, 11, 0.3)';
+        } else if (tipo === 'aleatoria') {
+          badgePix.textContent = '🔑 Aleatória';
+          badgePix.style.color = '#ec4899';
+          badgePix.style.background = 'rgba(236, 72, 153, 0.15)';
+          badgePix.style.borderColor = 'rgba(236, 72, 153, 0.3)';
+        } else {
+          badgePix.textContent = '🔑 Chave PIX';
+          badgePix.style.color = 'var(--text-muted)';
+          badgePix.style.background = 'rgba(255, 255, 255, 0.05)';
+          badgePix.style.borderColor = 'var(--border-color)';
+        }
+      };
+
+      MaskUtils.aplicarMascaraInput(configPix, val => {
+        const formatado = MaskUtils.formatarChavePix(val);
+        setTimeout(atualizarBadgePix, 0);
+        return formatado;
+      });
+
+      configPix.addEventListener('blur', atualizarBadgePix);
+      configPix.addEventListener('input', atualizarBadgePix);
+    }
+
+    // 2. Celular / WhatsApp do Organizador
+    const configCelular = document.getElementById('config-celular');
+    if (configCelular) {
+      MaskUtils.aplicarMascaraInput(configCelular, val => MaskUtils.formatarTelefone(val));
+    }
+
+    // 3. Chave PIX no modal de comunicados do WhatsApp
+    const msgParamPix = document.getElementById('msg-param-pix');
+    if (msgParamPix) {
+      MaskUtils.aplicarMascaraInput(msgParamPix, val => MaskUtils.formatarChavePix(val));
+    }
+
+    // 4. Celular / Observação no cadastro e edição de aposta
+    const apostaTel = document.getElementById('aposta-telefone');
+    if (apostaTel) {
+      MaskUtils.aplicarMascaraInput(apostaTel, val => MaskUtils.formatarTelefoneOuTexto(val));
+    }
+  }
+  configurarMascarasInputs();
 
   // Paginação
   document.getElementById('btn-page-prev').addEventListener('click', () => {
@@ -1418,10 +1492,47 @@ function setupEventListeners() {
     }
 
     if (document.getElementById('config-pix')) {
-      document.getElementById('config-pix').value = state.chavePix || '';
+      const pixVal = (typeof MaskUtils !== 'undefined') ? MaskUtils.formatarChavePix(state.chavePix || '') : (state.chavePix || '');
+      const elPix = document.getElementById('config-pix');
+      elPix.value = pixVal;
+      const badgePix = document.getElementById('badge-tipo-pix');
+      if (badgePix && typeof MaskUtils !== 'undefined') {
+        const tipo = MaskUtils.identificarTipoPix(pixVal);
+        if (tipo === 'cpf') {
+          badgePix.textContent = '📄 CPF';
+          badgePix.style.color = '#10b981';
+          badgePix.style.background = 'rgba(16, 185, 129, 0.15)';
+          badgePix.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+        } else if (tipo === 'celular') {
+          badgePix.textContent = '📱 Celular';
+          badgePix.style.color = '#60a5fa';
+          badgePix.style.background = 'rgba(59, 130, 246, 0.15)';
+          badgePix.style.borderColor = 'rgba(59, 130, 246, 0.3)';
+        } else if (tipo === 'email') {
+          badgePix.textContent = '✉️ E-mail';
+          badgePix.style.color = '#a78bfa';
+          badgePix.style.background = 'rgba(167, 139, 250, 0.15)';
+          badgePix.style.borderColor = 'rgba(167, 139, 250, 0.3)';
+        } else if (tipo === 'cnpj') {
+          badgePix.textContent = '🏢 CNPJ';
+          badgePix.style.color = '#f59e0b';
+          badgePix.style.background = 'rgba(245, 158, 11, 0.15)';
+          badgePix.style.borderColor = 'rgba(245, 158, 11, 0.3)';
+        } else if (tipo === 'aleatoria') {
+          badgePix.textContent = '🔑 Aleatória';
+          badgePix.style.color = '#ec4899';
+          badgePix.style.background = 'rgba(236, 72, 153, 0.15)';
+          badgePix.style.borderColor = 'rgba(236, 72, 153, 0.3)';
+        } else {
+          badgePix.textContent = '🔑 Chave PIX';
+          badgePix.style.color = 'var(--text-muted)';
+          badgePix.style.background = 'rgba(255, 255, 255, 0.05)';
+          badgePix.style.borderColor = 'var(--border-color)';
+        }
+      }
     }
     if (document.getElementById('config-celular')) {
-      document.getElementById('config-celular').value = state.celularOrganizador || '';
+      document.getElementById('config-celular').value = (typeof MaskUtils !== 'undefined') ? MaskUtils.formatarTelefone(state.celularOrganizador || '') : (state.celularOrganizador || '');
     }
     if (document.getElementById('config-whatsapp-grupo')) {
       document.getElementById('config-whatsapp-grupo').value = state.linkGrupoWhatsApp || '';
@@ -1973,12 +2084,16 @@ function setupEventListeners() {
         ciclo.premioQuadra = parseFloat(document.getElementById('config-premio-quadra').value) || 0.0;
       }
 
-      // Contatos, PIX e Links
+      // Contatos, PIX e Links (salva com máscara canônica)
       const pixInput = document.getElementById('config-pix');
-      if (pixInput) state.chavePix = pixInput.value.trim();
+      if (pixInput) {
+        state.chavePix = (typeof MaskUtils !== 'undefined') ? MaskUtils.formatarChavePix(pixInput.value.trim()) : pixInput.value.trim();
+      }
 
       const celInput = document.getElementById('config-celular');
-      if (celInput) state.celularOrganizador = celInput.value.trim();
+      if (celInput) {
+        state.celularOrganizador = (typeof MaskUtils !== 'undefined') ? MaskUtils.formatarTelefone(celInput.value.trim()) : celInput.value.trim();
+      }
 
       const grupoInput = document.getElementById('config-whatsapp-grupo');
       if (grupoInput) state.linkGrupoWhatsApp = grupoInput.value.trim();
@@ -2376,7 +2491,7 @@ function setupEventListeners() {
     const inputPix = document.getElementById('msg-param-pix');
 
     if (inputPix && !inputPix.value && state.chavePix) {
-      inputPix.value = state.chavePix;
+      inputPix.value = (typeof MaskUtils !== 'undefined') ? MaskUtils.formatarChavePix(state.chavePix) : state.chavePix;
     }
 
     if (inputInicio && !inputInicio.value) {
@@ -2446,7 +2561,7 @@ function setupEventListeners() {
     // Sincroniza a chave Pix se o usuário tiver preenchido no input de parâmetros
     const inputPix = document.getElementById('msg-param-pix');
     if (inputPix && inputPix.value.trim()) {
-      state.chavePix = inputPix.value.trim();
+      state.chavePix = (typeof MaskUtils !== 'undefined') ? MaskUtils.formatarChavePix(inputPix.value.trim()) : inputPix.value.trim();
     }
 
     // Persistência local no navegador
