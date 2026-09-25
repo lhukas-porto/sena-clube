@@ -29,12 +29,17 @@ if (supabaseUrl && supabaseKey) {
   }
 }
 
-// Garante que os diretórios necessários existam
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-if (!fs.existsSync(BACKUPS_DIR)) fs.mkdirSync(BACKUPS_DIR, { recursive: true });
+// Garante que os diretórios necessários existam (com fallback seguro para serverless read-only)
+try {
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+  if (!fs.existsSync(BACKUPS_DIR)) fs.mkdirSync(BACKUPS_DIR, { recursive: true });
+} catch (fsErr) {
+  // Ambientes serverless efêmeros (ex: Vercel /var/task) possuem sistema de arquivos somente leitura
+}
 
 function salvarBackupSnapshot(dadosAtuais) {
   try {
+    if (!fs.existsSync(BACKUPS_DIR)) return;
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const backupPath = path.join(BACKUPS_DIR, `senaclube_${timestamp}.json`);
     fs.writeFileSync(backupPath, JSON.stringify(dadosAtuais, null, 2), 'utf-8');
