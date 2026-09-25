@@ -98,6 +98,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Persistência
 // ==========================================================================
 async function salvarEstado() {
+  mostrarIndicadorSalvamento(false, true);
+
   // Garante que o ciclo ativo sempre existe no array global
   getCicloVisualizado();
 
@@ -171,6 +173,7 @@ async function carregarEstado() {
 
   // Garante que o estado sempre tenha pelo menos uma edição ativa conectada
   getCicloVisualizado();
+  mostrarIndicadorSalvamento(true);
   atualizarTituloAbaNavegador();
 }
 
@@ -192,15 +195,20 @@ function atualizarHeaderNomeBolao() {
   }
 }
 
-function mostrarIndicadorSalvamento(sucesso) {
+function mostrarIndicadorSalvamento(sucesso, salvando = false) {
   const el = document.getElementById('footer-save-indicator');
   if (!el) return;
+  if (salvando) {
+    el.textContent = '⏳ Sincronizando com Supabase...';
+    el.style.color = '#f59e0b';
+    return;
+  }
   if (sucesso) {
-    el.textContent = '💾 Sincronizado e salvo com sucesso';
+    el.textContent = '☁️ Conectado e salvo na nuvem';
     el.style.color = 'var(--emerald-primary)';
   } else {
-    el.textContent = '💾 Salvo localmente no navegador';
-    el.style.color = '#38bdf8';
+    el.textContent = '⚠️ Modo offline (salvo localmente)';
+    el.style.color = '#ef4444';
   }
 }
 
