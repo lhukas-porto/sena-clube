@@ -2329,6 +2329,26 @@ function renderModalHistoricoCiclos() {
     const primeiroConc = c.concursos.length > 0 ? c.concursos[0].numero : c.concursoInicial;
     const ultimoConc = c.concursos.length > 0 ? c.concursos[c.concursos.length - 1].numero : 'Em aberto';
 
+    const quadraGanhadores = c.ganhadorQuadraNome
+      ? c.ganhadorQuadraNome
+      : (apuracao.ganhadoresQuadraPrimeiroSorteio && apuracao.ganhadoresQuadraPrimeiroSorteio.length > 0
+          ? apuracao.ganhadoresQuadraPrimeiroSorteio.map(g => g.nome).join(', ')
+          : null);
+
+    const quadraLabel = (apuracao.ganhadoresQuadraPrimeiroSorteio && apuracao.ganhadoresQuadraPrimeiroSorteio.length > 1) || (quadraGanhadores && quadraGanhadores.includes(','))
+      ? 'Vencedores da Quadra'
+      : 'Vencedor da Quadra';
+
+    const senaGanhadores = c.ganhadorSenaNome
+      ? c.ganhadorSenaNome
+      : (apuracao.ganhadoresSena && apuracao.ganhadoresSena.length > 0
+          ? apuracao.ganhadoresSena.map(g => g.nome).join(', ')
+          : null);
+
+    const senaLabel = (apuracao.ganhadoresSena && apuracao.ganhadoresSena.length > 1) || (senaGanhadores && senaGanhadores.includes(','))
+      ? 'Vencedores da Sena'
+      : 'Vencedor da Sena';
+
     const card = document.createElement('div');
     card.className = 'historico-card';
     card.innerHTML = `
@@ -2349,7 +2369,8 @@ function renderModalHistoricoCiclos() {
         <div class="admin-only">Taxa Organizador (20%): <strong style="color: var(--gold-primary);">${formatarMoeda(fin.valorOrganizadorArrecadado)}</strong></div>
         <div>Prêmio Pago da Quadra: <strong style="color: var(--gold-primary);">${formatarMoeda(fin.valorPagoQuadra)}</strong></div>
         <div>Prêmio Líquido da Sena: <strong style="color: var(--emerald-primary);">${formatarMoeda(fin.premioSenaLiquido)}</strong></div>
-        <div>Vencedor da Sena: <strong>${c.ganhadorSenaNome || (apuracao.ganhadoresSena.length > 0 ? apuracao.ganhadoresSena.map(g => g.nome).join(', ') : 'Nenhum')}</strong></div>
+        <div>${senaLabel}: <strong>${senaGanhadores || 'Nenhum'}</strong></div>
+        <div>${quadraLabel}: <strong style="color: var(--gold-primary);">${quadraGanhadores || 'Nenhum'}</strong></div>
       </div>
 
       <div class="historico-card-actions" style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border-subtle); gap: 10px;">

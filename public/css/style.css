@@ -97,13 +97,14 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .brand {
   display: flex;
   align-items: center;
   gap: 14px;
+  flex-shrink: 0;
 }
 
 .brand-badge {
@@ -185,6 +186,7 @@ body {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   padding: 6px 12px;
+  flex-shrink: 0;
 }
 
 .ciclo-selector-wrap {
@@ -217,6 +219,7 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-shrink: 0;
 }
 
 .status-card {
@@ -1439,12 +1442,22 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
 .historico-meta-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 8px;
+  gap: 8px 12px;
   font-size: 0.78rem;
   color: var(--text-secondary);
   background: var(--bg-surface);
   border-radius: var(--radius-sm);
   padding: 8px 12px;
+}
+
+body.is-admin .historico-meta-grid {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+@media (max-width: 640px) {
+  body.is-admin .historico-meta-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 .relatorio-textarea {
@@ -1580,7 +1593,7 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
 .app-footer {
   border-top: 1px solid var(--border-subtle);
   background: var(--bg-surface);
-  padding: 14px 24px;
+  padding: 16px 24px;
   margin-top: auto;
 }
 
@@ -1591,7 +1604,7 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 14px;
+  gap: 16px;
   font-size: 0.78rem;
   color: var(--text-muted);
 }
@@ -1611,14 +1624,15 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
 .footer-developer {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .developer-label {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   color: var(--text-muted);
-  font-weight: 500;
-  letter-spacing: 0.02em;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 .developer-badge {
@@ -1626,22 +1640,22 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
   align-items: center;
   justify-content: center;
   background: #ffffff;
-  padding: 3px 8px;
-  border-radius: 6px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 6px 14px;
+  border-radius: 10px;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .developer-badge:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
 }
 
 .developer-logo {
-  height: 28px;
+  height: 48px;
   width: auto;
-  max-width: 100px;
+  max-width: 140px;
   object-fit: contain;
   display: block;
 }
@@ -2111,15 +2125,7 @@ body:not(.is-admin) .admin-only {
   display: none !important;
 }
 
-body.is-admin .header-container {
-  padding-right: 145px;
-}
-
 .header-admin-badge {
-  position: absolute;
-  top: 14px;
-  right: 24px;
-  z-index: 60;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -2131,16 +2137,13 @@ body.is-admin .header-container {
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
-@media (max-width: 768px) {
-  body.is-admin .header-container {
-    padding-right: 0;
-  }
-  .header-admin-badge {
-    top: 12px;
-    right: 14px;
-    padding: 3px 10px;
+@media (max-width: 992px) {
+  .header-container {
+    flex-wrap: wrap;
+    gap: 12px;
   }
 }
 
