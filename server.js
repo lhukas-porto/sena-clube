@@ -100,11 +100,43 @@ async function fetchCaixaConcurso(numero = null) {
   } catch (err) {
     clearTimeout(timeout);
     console.warn(`[Caixa API] Falha na busca primária (${url}):`, err.message);
+
+    // 2. Tenta espelho Guidi (altamente confiável e com mesmo schema)
+    try {
+      const guidiUrl = numero
+        ? `https://api.guidi.dev.br/loteria/megasena/${numero}`
+        : `https://api.guidi.dev.br/loteria/megasena/ultimo`;
+      const guidiCtrl = new AbortController();
+      const guidiTimeout = setTimeout(() => guidiCtrl.abort(), 6000);
+      const guidiRes = await fetch(guidiUrl, { signal: guidiCtrl.signal });
+      clearTimeout(guidiTimeout);
+      if (guidiRes.ok) {
+        const gData = await guidiRes.json();
+        const fallbackResult = {
+          numero: gData.numero,
+          dataApuracao: gData.dataApuracao || '',
+          dezenas: gData.listaDezenas || gData.dezenasSorteadasOrdemSorteio || [],
+          acumulado: gData.acumulado || false,
+          valorAcumuladoProximoConcurso: gData.valorAcumuladoProximoConcurso || 0,
+          nomeMunicipioUFSorteio: gData.nomeMunicipioUFSorteio || '',
+          fonte: 'espelho_guidi'
+        };
+        CAIXA_CACHE.set(cacheKey, { timestamp: Date.now(), data: fallbackResult });
+        return fallbackResult;
+      }
+    } catch (guidiErr) {
+      console.warn('[Caixa API] Falha no espelho Guidi:', guidiErr.message);
+    }
+
+    // 3. Tenta espelho Heroku (fallback terciário)
     try {
       const mirrorUrl = numero
         ? `https://loteriascaixa-api.herokuapp.com/api/megasena/${numero}`
         : `https://loteriascaixa-api.herokuapp.com/api/megasena/latest`;
-      const mirrorRes = await fetch(mirrorUrl);
+      const mCtrl = new AbortController();
+      const mTimeout = setTimeout(() => mCtrl.abort(), 6000);
+      const mirrorRes = await fetch(mirrorUrl, { signal: mCtrl.signal });
+      clearTimeout(mTimeout);
       if (mirrorRes.ok) {
         const mData = await mirrorRes.json();
         const fallbackResult = {
@@ -120,7 +152,7 @@ async function fetchCaixaConcurso(numero = null) {
         return fallbackResult;
       }
     } catch (mirrorErr) {
-      console.warn('[Caixa API] Falha no espelho secundário:', mirrorErr.message);
+      console.warn('[Caixa API] Falha no espelho Heroku:', mirrorErr.message);
     }
     throw err;
   }
@@ -139,14 +171,24 @@ const server = http.createServer(async (req, res) => {
   }
 
   const reqUrl = new URL(req.url, `http://${req.headers.host}`);
-  const pathname = reqUrl.pathname;
+  let pathname = reqUrl.pathname;
+
+  // Normalização caso o proxy ou rewrites passem com prefixo /public
+  if (pathname.startsWith('/public/')) {
+    pathname = pathname.substring(7);
+    if (!pathname.startsWith('/')) pathname = '/' + pathname;
+  }
 
   // --- API: Buscar concurso da Caixa ---
-  if (pathname.startsWith('/api/caixa/')) {
-    const param = pathname.replace('/api/caixa/', '').trim();
+  if (pathname.startsWith('/api/caixa')) {
+    let param = pathname.replace('/api/caixa', '').replace(/^\//, '').trim();
+    const queryParam = reqUrl.searchParams.get('param');
+    if ((!param || param === '[param]') && queryParam) {
+      param = queryParam.trim();
+    }
     try {
-      const concNum = (param === 'ultimo' || !param) ? null : parseInt(param, 10);
-      const data = await fetchCaixaConcurso(concNum);
+      const concNum = (!param || param === 'ultimo' || param === '[param]') ? null : parseInt(param, 10);
+      const data = await fetchCaixaConcurso(isNaN(concNum) ? null : concNum);
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: true, data }));
     } catch (err) {

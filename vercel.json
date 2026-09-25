@@ -1,8 +1,8 @@
 {
   "version": 2,
   "rewrites": [
-    { "source": "/api/caixa/(.*)", "destination": "/api/caixa/[param]?param=$1" },
+    { "source": "/api/caixa/(.*)", "destination": "/api/caixa/$1" },
     { "source": "/api/bolao", "destination": "/api/bolao" },
-    { "source": "/(.*)", "destination": "/public/$1" }
+    { "source": "/((?!api/).*)", "destination": "/public/$1" }
   ]
 }

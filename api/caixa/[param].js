@@ -44,6 +44,58 @@ export default async function handler(req, res) {
     return res.status(200).json({ success: true, data: result });
   } catch (err) {
     clearTimeout(timeout);
+    console.warn(`[Caixa Vercel API] Falha na busca primária (${url}):`, err.message);
+
+    // 2. Tenta espelho Guidi
+    try {
+      const guidiUrl = numero
+        ? `https://api.guidi.dev.br/loteria/megasena/${numero}`
+        : `https://api.guidi.dev.br/loteria/megasena/ultimo`;
+      const gRes = await fetch(guidiUrl);
+      if (gRes.ok) {
+        const gData = await gRes.json();
+        return res.status(200).json({
+          success: true,
+          data: {
+            numero: gData.numero,
+            dataApuracao: gData.dataApuracao || '',
+            dezenas: gData.listaDezenas || gData.dezenasSorteadasOrdemSorteio || [],
+            acumulado: gData.acumulado || false,
+            valorAcumuladoProximoConcurso: gData.valorAcumuladoProximoConcurso || 0,
+            nomeMunicipioUFSorteio: gData.nomeMunicipioUFSorteio || '',
+            fonte: 'espelho_guidi'
+          }
+        });
+      }
+    } catch (guidiErr) {
+      console.warn('[Caixa Vercel API] Falha no espelho Guidi:', guidiErr.message);
+    }
+
+    // 3. Tenta espelho Heroku
+    try {
+      const mirrorUrl = numero
+        ? `https://loteriascaixa-api.herokuapp.com/api/megasena/${numero}`
+        : `https://loteriascaixa-api.herokuapp.com/api/megasena/latest`;
+      const mirrorRes = await fetch(mirrorUrl);
+      if (mirrorRes.ok) {
+        const mData = await mirrorRes.json();
+        return res.status(200).json({
+          success: true,
+          data: {
+            numero: mData.concurso || mData.numero,
+            dataApuracao: mData.data || mData.dataApuracao || '',
+            dezenas: mData.dezenas || [],
+            acumulado: mData.acumulou || false,
+            valorAcumuladoProximoConcurso: mData.valorAcumuladoProximoConcurso || 0,
+            nomeMunicipioUFSorteio: mData.local || '',
+            fonte: 'espelho_loterias'
+          }
+        });
+      }
+    } catch (mirrorErr) {
+      console.warn('[Caixa Vercel API] Falha no espelho secundário:', mirrorErr.message);
+    }
+
     return res.status(502).json({
       success: false,
       error: 'Não foi possível consultar a Caixa neste momento.',
