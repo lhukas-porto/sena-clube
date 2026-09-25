@@ -1008,6 +1008,61 @@ function setupEventListeners() {
     }
   });
 
+  // Validação em tempo real para qualquer campo de alimentação de números de jogos (01 a 60)
+  function configurarValidacaoNumerosJogos() {
+    function validarElementoInput(input, tipoContexto) {
+      const contextoMsg = tipoContexto === 'sorteio' ? 'no sorteio' : 'na aposta';
+
+      function checarEAlertar() {
+        const raw = input.value.trim();
+        if (!raw) return true;
+
+        const num = parseInt(raw, 10);
+        if (isNaN(num) || num < 1 || num > 60 || raw === '00' || raw === '0') {
+          alert(`⚠️ Número não permitido: "${raw}".\n\nNo SenaClube, os números ${contextoMsg} aceitam exclusivamente valores no intervalo de 01 a 60!`);
+          input.value = '';
+          setTimeout(() => input.focus(), 30);
+          return false;
+        } else {
+          // Normaliza com zero à esquerda se for de 1 a 9
+          input.value = num < 10 ? `0${num}` : `${num}`;
+          return true;
+        }
+      }
+
+      input.addEventListener('change', checarEAlertar);
+      input.addEventListener('blur', checarEAlertar);
+
+      input.addEventListener('input', () => {
+        const raw = input.value.trim();
+        if (!raw) return;
+
+        // Se digitou 0 isolado, 00 ou negativo
+        if (raw === '0' || raw === '00' || raw.startsWith('-')) {
+          alert(`⚠️ Número não permitido: "${raw}".\n\nNo SenaClube, os números ${contextoMsg} aceitam exclusivamente valores no intervalo de 01 a 60!`);
+          input.value = '';
+          return;
+        }
+
+        const num = parseInt(raw, 10);
+        if (!isNaN(num) && num > 60) {
+          alert(`⚠️ Número não permitido: "${raw}".\n\nNo SenaClube, os números ${contextoMsg} aceitam exclusivamente valores no intervalo de 01 a 60!`);
+          input.value = '';
+          setTimeout(() => input.focus(), 30);
+        }
+      });
+    }
+
+    document.querySelectorAll('#form-aposta .num-input').forEach(inp => {
+      validarElementoInput(inp, 'aposta');
+    });
+
+    document.querySelectorAll('#form-sorteio .num-sorteio-input').forEach(inp => {
+      validarElementoInput(inp, 'sorteio');
+    });
+  }
+  configurarValidacaoNumerosJogos();
+
   // Paginação
   document.getElementById('btn-page-prev').addEventListener('click', () => {
     if (state.paginaAtual > 1) {
@@ -1456,15 +1511,36 @@ function setupEventListeners() {
 
     const inputs = document.querySelectorAll('#form-aposta .num-input');
     const dezenas = [];
+    const invalidos = [];
+    const repetidos = [];
+
     inputs.forEach(inp => {
-      const val = parseInt(inp.value, 10);
-      if (val >= 1 && val <= 60 && !dezenas.includes(val)) {
-        dezenas.push(val);
+      const raw = inp.value.trim();
+      if (!raw) return;
+      const val = parseInt(raw, 10);
+      if (isNaN(val) || val < 1 || val > 60 || raw === '0' || raw === '00') {
+        invalidos.push(raw);
+      } else {
+        if (dezenas.includes(val)) {
+          repetidos.push(val < 10 ? `0${val}` : `${val}`);
+        } else {
+          dezenas.push(val);
+        }
       }
     });
 
+    if (invalidos.length > 0) {
+      alert(`⚠️ Número(s) não permitido(s): ${invalidos.join(', ')}.\n\nNo SenaClube, todos os números dos jogos aceitam exclusivamente valores no intervalo de 01 a 60!`);
+      return;
+    }
+
+    if (repetidos.length > 0) {
+      alert(`⚠️ Número(s) repetido(s) detectado(s): ${repetidos.join(', ')}.\n\nCada aposta deve conter 6 dezenas distintas.`);
+      return;
+    }
+
     if (dezenas.length !== 6) {
-      alert('Informe exatamente 6 dezenas distintas entre 01 e 60.');
+      alert('⚠️ Preencha todas as 6 dezenas da aposta com números válidos de 01 a 60.');
       return;
     }
 
@@ -1514,8 +1590,16 @@ function setupEventListeners() {
     list.innerHTML = '';
     summaryBar.innerHTML = '';
 
+    // Aviso se houver números fora do intervalo de 1 a 60
+    if (apostasDetectadas.numerosInvalidos && apostasDetectadas.numerosInvalidos.length > 0) {
+      alert(`⚠️ Número(s) não permitido(s) encontrado(s) no texto:\n\n${apostasDetectadas.numerosInvalidos.join(', ')}\n\nNo SenaClube, não é permitido utilizar números fora do intervalo de 01 a 60! Esses números foram desconsiderados na leitura das apostas.`);
+    }
+
     if (apostasDetectadas.length === 0) {
-      list.innerHTML = '<p style="color: #f87171; font-size: 0.85rem; padding: 10px;">Nenhuma aposta com 6 dezenas válidas foi encontrada no texto.</p>';
+      const avisoInvalido = (apostasDetectadas.numerosInvalidos && apostasDetectadas.numerosInvalidos.length > 0)
+        ? `<div style="margin-top: 8px; color: #ef4444; font-weight: 600;">⚠️ Atenção: Os seguintes números não são permitidos por estarem fora do intervalo de 01 a 60: ${apostasDetectadas.numerosInvalidos.join(', ')}</div>`
+        : '';
+      list.innerHTML = `<p style="color: #f87171; font-size: 0.85rem; padding: 10px;">Nenhuma aposta com 6 dezenas válidas (01 a 60) foi encontrada no texto.${avisoInvalido}</p>`;
       btnImport.disabled = true;
       btnImport.textContent = 'Confirmar e Salvar Apostas';
       container.classList.remove('hidden');
@@ -1536,6 +1620,10 @@ function setupEventListeners() {
       ${comparacaoAtual.totalNovas > 0 ? `
         <span class="comp-badge adicionadas" title="Novos participantes a serem incluídos">
           🆕 ${comparacaoAtual.totalNovas} Novo(s)
+        </span>` : ''}
+      ${apostasDetectadas.numerosInvalidos && apostasDetectadas.numerosInvalidos.length > 0 ? `
+        <span class="comp-badge desistentes" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid #ef4444;" title="Números fora do intervalo de 01 a 60 desconsiderados">
+          ⚠️ ${apostasDetectadas.numerosInvalidos.length} fora de 01 a 60 (${apostasDetectadas.numerosInvalidos.join(', ')})
         </span>` : ''}
       <span class="comp-badge nao-renovadas" title="Demais jogos já cadastrados no bolão">
         ⚠️ ${comparacaoAtual.totalNaoRenovadas} Demais no Bolão
@@ -1703,15 +1791,36 @@ function setupEventListeners() {
 
     const inputs = document.querySelectorAll('#form-sorteio .num-sorteio-input');
     const dezenas = [];
+    const invalidos = [];
+    const repetidos = [];
+
     inputs.forEach(inp => {
-      const val = parseInt(inp.value, 10);
-      if (val >= 1 && val <= 60 && !dezenas.includes(val)) {
-        dezenas.push(val);
+      const raw = inp.value.trim();
+      if (!raw) return;
+      const val = parseInt(raw, 10);
+      if (isNaN(val) || val < 1 || val > 60 || raw === '0' || raw === '00') {
+        invalidos.push(raw);
+      } else {
+        if (dezenas.includes(val)) {
+          repetidos.push(val < 10 ? `0${val}` : `${val}`);
+        } else {
+          dezenas.push(val);
+        }
       }
     });
 
+    if (invalidos.length > 0) {
+      alert(`⚠️ Número(s) não permitido(s): ${invalidos.join(', ')}.\n\nNo SenaClube, os sorteios aceitam exclusivamente valores no intervalo de 01 a 60!`);
+      return;
+    }
+
+    if (repetidos.length > 0) {
+      alert(`⚠️ Número(s) repetido(s) no sorteio: ${repetidos.join(', ')}.\n\nO concurso deve conter 6 dezenas distintas.`);
+      return;
+    }
+
     if (dezenas.length !== 6) {
-      alert('Informe 6 dezenas distintas para o concurso.');
+      alert('⚠️ Preencha todas as 6 dezenas do sorteio com números válidos de 01 a 60.');
       return;
     }
 

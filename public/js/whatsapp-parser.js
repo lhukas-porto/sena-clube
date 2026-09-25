@@ -15,25 +15,41 @@ const WhatsAppParser = {
 
     const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
     const apostas = [];
+    const numerosInvalidos = [];
 
     let currentName = 'Apostador';
 
     for (let line of lines) {
+      // Ignora linhas que são claramente cabeçalhos, metadados ou regras
+      if (/^(?:concurso|sorteio|data|mega-sena|resultado|valor|prêmio|premio|regras|atenção|atencao)\b/i.test(line) && !line.includes(':')) {
+        continue;
+      }
+
       // Remove carimbos de data/hora típicos de export do WhatsApp: [12:34, 15/01/2026] Nome:
       const cleanLine = line
         .replace(/^\[?\d{1,2}:\d{2}(?::\d{2})?(?:,\s*\d{1,2}\/\d{1,2}\/\d{2,4})?\]?\s*/, '')
+        .replace(/\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b/g, '') // remove datas completas como 15/01/2026
         .trim();
 
       // Procura todos os números na linha
-      const numberMatches = cleanLine.match(/\b\d{1,2}\b/g);
+      const numberMatches = cleanLine.match(/\b\d+\b/g);
 
       if (numberMatches) {
         // Converte e valida números de 1 a 60
         const validNumbers = [];
+        const lineInvalidNumbers = [];
+
         for (let numStr of numberMatches) {
           const n = parseInt(numStr, 10);
-          if (n >= 1 && n <= 60 && !validNumbers.includes(n)) {
-            validNumbers.push(n);
+          if (n >= 1 && n <= 60) {
+            if (!validNumbers.includes(n)) {
+              validNumbers.push(n);
+            }
+          } else {
+            lineInvalidNumbers.push(numStr);
+            if (!numerosInvalidos.includes(numStr)) {
+              numerosInvalidos.push(numStr);
+            }
           }
         }
 
@@ -41,7 +57,7 @@ const WhatsAppParser = {
         if (validNumbers.length === 6) {
           // Extrai o nome removendo os números e caracteres especiais
           let nomeExtraido = cleanLine
-            .replace(/\b\d{1,2}\b/g, '')
+            .replace(/\b\d+\b/g, '')
             .replace(/[:\-–—,\(\)\[\]{}]+/g, ' ')
             .replace(/\s+/g, ' ')
             .trim();
@@ -68,7 +84,7 @@ const WhatsAppParser = {
         // Se a linha tem múltiplos de 6 (ex: 12 números = 2 jogos)
         if (validNumbers.length > 6 && validNumbers.length % 6 === 0) {
           let nomeExtraido = cleanLine
-            .replace(/\b\d{1,2}\b/g, '')
+            .replace(/\b\d+\b/g, '')
             .replace(/[:\-–—,\(\)\[\]{}]+/g, ' ')
             .replace(/\s+/g, ' ')
             .trim();
@@ -95,6 +111,7 @@ const WhatsAppParser = {
       }
     }
 
+    apostas.numerosInvalidos = numerosInvalidos;
     return apostas;
   }
 };
