@@ -18,11 +18,11 @@ function escapeHTML(str) {
 
 // Estado Global
 const state = {
-  nomeBolao: 'Bolão WM entre amigos — SenaClube',
+  nomeBolao: 'Bolão dos amigos',
   taxaOrganizadorGlobal: 0.20,
   cicloVisualizadoId: 1,
   ciclos: [],
-  chavePix: '(61) 99627-2630',
+  chavePix: '82885192100',
   celularOrganizador: '(61) 99627-2630',
   linkGrupoWhatsApp: 'https://chat.whatsapp.com/KT4gbhyKUUrBqW9fU2ZGpv',
   urlSiteAcesso: 'https://sena-clube.vercel.app',
@@ -191,7 +191,9 @@ async function carregarEstado() {
       const data = await res.json();
       if (data && typeof data === 'object') {
         if (typeof data.version === 'number') state.version = data.version;
-        if (data.nomeBolao) state.nomeBolao = data.nomeBolao;
+        if (data.nomeBolao) {
+          state.nomeBolao = String(data.nomeBolao).replace(/\bWM\b/gi, '').replace(/\s{2,}/g, ' ').trim() || 'Bolão dos amigos';
+        }
         if (typeof data.taxaOrganizadorGlobal === 'number') state.taxaOrganizadorGlobal = data.taxaOrganizadorGlobal;
         if (data.chavePix) state.chavePix = data.chavePix;
         if (data.celularOrganizador) state.celularOrganizador = data.celularOrganizador;
@@ -199,6 +201,18 @@ async function carregarEstado() {
         if (data.urlSiteAcesso) state.urlSiteAcesso = data.urlSiteAcesso;
         if (data.textosWhatsAppCustomizados && typeof data.textosWhatsAppCustomizados === 'object') {
           state.textosWhatsAppCustomizados = Object.assign({}, state.textosWhatsAppCustomizados, data.textosWhatsAppCustomizados);
+        }
+        if (state.textosWhatsAppCustomizados && typeof state.textosWhatsAppCustomizados === 'object') {
+          Object.keys(state.textosWhatsAppCustomizados).forEach(k => {
+            if (typeof state.textosWhatsAppCustomizados[k] === 'string') {
+              state.textosWhatsAppCustomizados[k] = state.textosWhatsAppCustomizados[k]
+                .replace(/BOLÃO\s+WM\s+ENTRE\s+AMIGOS\s*(?:—|-)?\s*SENACLUBE/gi, (state.nomeBolao || 'Bolão dos amigos').toUpperCase())
+                .replace(/BOLÃO\s+WM\s+ENTRE\s+AMIGOS/gi, (state.nomeBolao || 'Bolão dos amigos').toUpperCase())
+                .replace(/Bolão WM entre amigos/gi, state.nomeBolao || 'Bolão dos amigos')
+                .replace(/\bWM\b/g, '')
+                .replace(/\s{2,}/g, ' ');
+            }
+          });
           try {
             localStorage.setItem('senaclube_textos_whatsapp', JSON.stringify(state.textosWhatsAppCustomizados));
           } catch (e) {}
@@ -2057,9 +2071,103 @@ function setupEventListeners() {
     return nomes[tabKey] || 'Mensagem';
   }
 
+  // Função Central: Aplica parâmetros dinâmicos (datas, hora, concurso, edição, nome do bolão, pix)
+  // sobre qualquer texto (seja o modelo padrão ou um modelo customizado salvo pelo usuário)
+  function aplicarParametrosDinamicosNoTexto(textoOriginal, params) {
+    if (!textoOriginal || typeof textoOriginal !== 'string') return '';
+    let texto = textoOriginal;
+
+    const nomeBolao = (params.nomeBolao || state.nomeBolao || 'Bolão dos amigos').trim();
+    const cicloNome = (params.cicloNome || 'Edição 1').replace(/Ciclo\s*/i, 'Edição ');
+    const concursoInicial = String(params.concursoInicial || '3064');
+    const dataInicio = params.dataInicio || 'A definir';
+    const dataEncerramento = params.dataEncerramento || 'A definir';
+    const chavePix = (params.chavePix !== undefined ? params.chavePix : (state.chavePix || '')).trim();
+
+    // 1. Limpeza estrita de qualquer menção legada a "WM"
+    texto = texto.replace(/BOLÃO\s+WM\s+ENTRE\s+AMIGOS\s*(?:—|-)?\s*SENACLUBE/gi, nomeBolao.toUpperCase());
+    texto = texto.replace(/BOLÃO\s+WM\s+ENTRE\s+AMIGOS/gi, nomeBolao.toUpperCase());
+    texto = texto.replace(/Bolão WM entre amigos/gi, nomeBolao);
+    texto = texto.replace(/\bWM\b/g, '').replace(/\s{2,}/g, ' ');
+
+    // 2. Cabeçalho oficial: 🏆 *NOME DO BOLÃO — EDIÇÃO X*
+    const regexCabecalho = /(🏆\s*\*)[^\n*]+?(?:\s*—\s*(?:EDIÇÃO|Ciclo|Edição)\s*\d+)?(\*)/i;
+    if (regexCabecalho.test(texto)) {
+      texto = texto.replace(regexCabecalho, `$1${nomeBolao.toUpperCase()} — ${cicloNome.toUpperCase()}$2`);
+    }
+
+    // 3. Concurso Inicial: 📌 *Concurso Inicial:* 3064
+    const regexConcurso = /(📌\s*\*Concurso Inicial:\*)\s*[^\n]*/i;
+    if (regexConcurso.test(texto)) {
+      texto = texto.replace(regexConcurso, `$1 ${concursoInicial}`);
+    }
+
+    // 4. Data do 1º Sorteio: 🗓️ *Primeiro Sorteio:* ...
+    const regexInicio = /(🗓️\s*\*(?:Primeiro|1º)\s*Sorteio:\*)\s*[^\n]*/i;
+    if (regexInicio.test(texto)) {
+      texto = texto.replace(regexInicio, `$1 ${dataInicio}`);
+    }
+
+    // 5. Prazo Limite / Encerramento das Apostas: ⏰ *Prazo Limite...* / ⏳ *Prazo Final...*
+    const regexPrazo = /(⏰\s*\*Prazo Limite(?: para Apostas)?:\*|⏳\s*\*Prazo Final(?: Impreterível)?:\*|⏰\s*\*Encerramento(?:\s*das\s*Apostas)?:\*)\s*[^\n]*/i;
+    if (regexPrazo.test(texto)) {
+      texto = texto.replace(regexPrazo, `$1 ${dataEncerramento}`);
+    }
+
+    // 6. Chave Pix: Atualização ou Inserção Dinâmica
+    const regexPix = /\n?🔑\s*\*(?:Chave\s*)?Pix:\*\s*[^\n]*/i;
+    if (chavePix) {
+      if (regexPix.test(texto)) {
+        texto = texto.replace(regexPix, `\n🔑 *Chave Pix:* ${chavePix}`);
+      } else {
+        const regexAposQuadra = /(🎯\s*\*Prêmio Especial da Quadra[^\n]*\n)/i;
+        const regexAposCota = /(💰\s*\*Valor por Jogo\/Cota:[^\n]*\n)/i;
+        const regexAntesRegras = /(\n\s*📝\s*\*COMO PARTICIPAR:\*)/i;
+        const regexAntesFechamento = /(\n\s*Quem não confirmou)/i;
+
+        if (regexAposQuadra.test(texto)) {
+          texto = texto.replace(regexAposQuadra, `$1🔑 *Chave Pix:* ${chavePix}\n`);
+        } else if (regexAposCota.test(texto)) {
+          texto = texto.replace(regexAposCota, `$1🔑 *Chave Pix:* ${chavePix}\n`);
+        } else if (regexAntesRegras.test(texto)) {
+          texto = texto.replace(regexAntesRegras, `\n🔑 *Chave Pix:* ${chavePix}\n$1`);
+        } else if (regexAntesFechamento.test(texto)) {
+          texto = texto.replace(regexAntesFechamento, `\n🔑 *Chave Pix:* ${chavePix}\n\n$1`);
+        } else {
+          texto += `\n🔑 *Chave Pix:* ${chavePix}\n`;
+        }
+      }
+    } else {
+      // Se a chave Pix for apagada, remove a linha
+      texto = texto.replace(regexPix, '');
+    }
+
+    // 7. Placeholders flexíveis {{...}}
+    texto = texto
+      .replace(/\{\{nomeBolao\}\}/gi, nomeBolao)
+      .replace(/\{\{cicloNome\}\}/gi, cicloNome)
+      .replace(/\{\{concursoInicial\}\}/gi, concursoInicial)
+      .replace(/\{\{dataInicio\}\}/gi, dataInicio)
+      .replace(/\{\{dataEncerramento\}\}/gi, dataEncerramento)
+      .replace(/\{\{chavePix\}\}/gi, chavePix);
+
+    return texto;
+  }
+
   function atualizarBadgeStatusMensagem(status, horaSalvamento = null) {
     const badge = document.getElementById('badge-msg-custom-status');
     const btnRestaurar = document.getElementById('btn-restaurar-texto-whatsapp');
+    const tabAtual = state.abaMensagemWhatsAppAtiva || 'boletim';
+
+    // Regra explícita: Na aba de abertura de novo bolão, o botão "Restaurar Padrão" NUNCA é exibido
+    if (btnRestaurar) {
+      if (tabAtual === 'abertura-padrao') {
+        btnRestaurar.style.display = 'none';
+      } else {
+        btnRestaurar.style.display = 'inline-flex';
+      }
+    }
+
     if (!badge) return;
 
     if (status === 'customizado') {
@@ -2068,7 +2176,7 @@ function setupEventListeners() {
       badge.style.background = 'rgba(16, 185, 129, 0.2)';
       badge.style.color = '#10b981';
       badge.style.borderColor = 'rgba(16, 185, 129, 0.5)';
-      if (btnRestaurar) {
+      if (btnRestaurar && tabAtual !== 'abertura-padrao') {
         btnRestaurar.disabled = false;
         btnRestaurar.style.opacity = '1';
         btnRestaurar.style.cursor = 'pointer';
@@ -2078,7 +2186,7 @@ function setupEventListeners() {
       badge.style.background = 'rgba(245, 158, 11, 0.2)';
       badge.style.color = '#f59e0b';
       badge.style.borderColor = 'rgba(245, 158, 11, 0.5)';
-      if (btnRestaurar) {
+      if (btnRestaurar && tabAtual !== 'abertura-padrao') {
         btnRestaurar.disabled = false;
         btnRestaurar.style.opacity = '1';
         btnRestaurar.style.cursor = 'pointer';
@@ -2088,7 +2196,7 @@ function setupEventListeners() {
       badge.style.background = 'rgba(59, 130, 246, 0.15)';
       badge.style.color = '#60a5fa';
       badge.style.borderColor = 'rgba(59, 130, 246, 0.3)';
-      if (btnRestaurar) {
+      if (btnRestaurar && tabAtual !== 'abertura-padrao') {
         btnRestaurar.disabled = true;
         btnRestaurar.style.opacity = '0.45';
         btnRestaurar.style.cursor = 'not-allowed';
@@ -2126,7 +2234,7 @@ function setupEventListeners() {
     const badgeEncerramento = document.getElementById('badge-preview-encerramento');
     if (badgeEncerramento) badgeEncerramento.textContent = dataEncerramento;
 
-    const chavePix = document.getElementById('msg-param-pix')?.value || '';
+    const chavePix = (document.getElementById('msg-param-pix')?.value || '').trim();
 
     // Atualiza visibilidade dos campos de parâmetros e descrições
     if (tabAtual === 'boletim') {
@@ -2146,11 +2254,27 @@ function setupEventListeners() {
       if (descEl) descEl.textContent = 'Convite curto e direto ao ponto com foco em engajamento rápido para amigos no WhatsApp.';
     }
 
+    const dynamicParams = {
+      nomeBolao: state.nomeBolao || 'Bolão dos amigos',
+      cicloNome: ciclo.nome || 'Edição 1',
+      concursoInicial: ciclo.concursoInicial || 3064,
+      dataInicio,
+      dataEncerramento,
+      valorCota: ciclo.valorCota || 30.0,
+      chavePix,
+      premioQuadra: ciclo.premioQuadraDinamico !== false ? financeiro.premioQuadraConfig : (ciclo.premioQuadra || 0.0),
+      premioQuadraDinamico: ciclo.premioQuadraDinamico !== false
+    };
+
     // Se o usuário já salvou um modelo personalizado para esta aba e não solicitou restauração, usa o salvo
     const hasCustom = state.textosWhatsAppCustomizados && typeof state.textosWhatsAppCustomizados[tabAtual] === 'string' && state.textosWhatsAppCustomizados[tabAtual].trim() !== '';
 
     if (hasCustom && !forcarRegeneracao) {
-      if (txtArea) txtArea.value = state.textosWhatsAppCustomizados[tabAtual];
+      let textoSalvo = state.textosWhatsAppCustomizados[tabAtual];
+      if (tabAtual === 'abertura-padrao' || tabAtual === 'lembrete-fechamento') {
+        textoSalvo = aplicarParametrosDinamicosNoTexto(textoSalvo, dynamicParams);
+      }
+      if (txtArea) txtArea.value = textoSalvo;
       atualizarBadgeStatusMensagem('customizado');
       return;
     }
@@ -2161,26 +2285,16 @@ function setupEventListeners() {
     if (tabAtual === 'boletim') {
       txtArea.value = ExportShare.gerarRelatorioWhatsApp(state, apuracao, financeiro, ciclo);
     } else if (tabAtual === 'abertura-padrao') {
-      txtArea.value = ExportShare.gerarMensagemAberturaPadrao({
-        nomeBolao: state.nomeBolao || 'Bolão entre Amigos',
-        cicloNome: ciclo.nome || 'Nova Edição',
-        concursoInicial: ciclo.concursoInicial || 3061,
-        dataInicio,
-        dataEncerramento,
-        valorCota: ciclo.valorCota || 30.0,
-        chavePix,
-        premioQuadra: ciclo.premioQuadraDinamico !== false ? financeiro.premioQuadraConfig : (ciclo.premioQuadra || 0.0),
-        premioQuadraDinamico: ciclo.premioQuadraDinamico !== false
-      });
+      txtArea.value = ExportShare.gerarMensagemAberturaPadrao(dynamicParams);
     } else if (tabAtual === 'lembrete-fechamento') {
       txtArea.value = ExportShare.gerarMensagemLembreteFechamento({
-        nomeBolao: state.nomeBolao || 'Bolão entre Amigos',
+        nomeBolao: dynamicParams.nomeBolao,
         dataEncerramento,
         chavePix
       });
     } else if (tabAtual === 'convite-completo') {
       txtArea.value = ExportShare.gerarMensagemConviteCompleto({
-        nomeBolao: state.nomeBolao || 'SenaClube',
+        nomeBolao: state.nomeBolao || 'Bolão dos amigos',
         valorCota: ciclo.valorCota || 30.0,
         whatsapp: state.celularOrganizador || '(61) 99627-2630',
         whatsappLink: `https://wa.me/55${(state.celularOrganizador || '61996272630').replace(/\D/g, '')}`,
@@ -2189,7 +2303,7 @@ function setupEventListeners() {
       });
     } else if (tabAtual === 'convite-rapido') {
       txtArea.value = ExportShare.gerarMensagemConviteRapido({
-        nomeBolao: state.nomeBolao || 'Bolão entre Amigos',
+        nomeBolao: state.nomeBolao || 'Bolão dos amigos',
         valorCota: ciclo.valorCota || 30.0,
         whatsapp: state.celularOrganizador || '(61) 99627-2630',
         whatsappLink: `https://wa.me/55${(state.celularOrganizador || '61996272630').replace(/\D/g, '')}`,
@@ -2242,6 +2356,11 @@ function setupEventListeners() {
     const inputInicio = document.getElementById('msg-param-inicio-date');
     const inputEncerramento = document.getElementById('msg-param-encerramento-date');
     const inputHora = document.getElementById('msg-param-encerramento-time');
+    const inputPix = document.getElementById('msg-param-pix');
+
+    if (inputPix && !inputPix.value && state.chavePix) {
+      inputPix.value = state.chavePix;
+    }
 
     if (inputInicio && !inputInicio.value) {
       const hoje = new Date();
@@ -2285,7 +2404,7 @@ function setupEventListeners() {
     });
   }
 
-  // Função Global: Salvar Modelo de Mensagem Atual
+  // Função Global: Salvar Modelo de Mensagem Atual (Persistente para os próximos comunicados)
   window.salvarModeloWhatsApp = async function() {
     const btnSalvar = document.getElementById('btn-salvar-texto-whatsapp');
     const txtArea = document.getElementById('relatorio-whatsapp-text');
@@ -2307,6 +2426,12 @@ function setupEventListeners() {
     }
     state.textosWhatsAppCustomizados[tabAtual] = valor;
 
+    // Sincroniza a chave Pix se o usuário tiver preenchido no input de parâmetros
+    const inputPix = document.getElementById('msg-param-pix');
+    if (inputPix && inputPix.value.trim()) {
+      state.chavePix = inputPix.value.trim();
+    }
+
     // Persistência local no navegador
     try {
       localStorage.setItem('senaclube_textos_whatsapp', JSON.stringify(state.textosWhatsAppCustomizados));
@@ -2315,7 +2440,7 @@ function setupEventListeners() {
     }
 
     // Persistência no servidor / banco
-    const salvou = await salvarEstado();
+    await salvarEstado();
 
     const agora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     atualizarBadgeStatusMensagem('customizado', agora);
@@ -2386,17 +2511,33 @@ function setupEventListeners() {
     if (el) {
       const handler = () => {
         const tabAtual = state.abaMensagemWhatsAppAtiva || 'boletim';
-        const hasCustom = state.textosWhatsAppCustomizados && typeof state.textosWhatsAppCustomizados[tabAtual] === 'string' && state.textosWhatsAppCustomizados[tabAtual].trim() !== '';
-        if (!hasCustom) {
-          atualizarTextoMensagemWhatsApp(true);
-        } else {
-          const valDateInicio = document.getElementById('msg-param-inicio-date')?.value;
-          const valDateEncerramento = document.getElementById('msg-param-encerramento-date')?.value;
-          const valHoraEncerramento = document.getElementById('msg-param-encerramento-time')?.value || '20:00';
-          const badgeInicio = document.getElementById('badge-preview-inicio');
-          if (badgeInicio) badgeInicio.textContent = formatarDataSorteioExtenso(valDateInicio);
-          const badgeEncerramento = document.getElementById('badge-preview-encerramento');
-          if (badgeEncerramento) badgeEncerramento.textContent = formatarDataEncerramentoExtenso(valDateEncerramento, valHoraEncerramento);
+        const txtArea = document.getElementById('relatorio-whatsapp-text');
+        const valDateInicio = document.getElementById('msg-param-inicio-date')?.value;
+        const valDateEncerramento = document.getElementById('msg-param-encerramento-date')?.value;
+        const valHoraEncerramento = document.getElementById('msg-param-encerramento-time')?.value || '20:00';
+        const chavePix = (document.getElementById('msg-param-pix')?.value || '').trim();
+
+        const dataInicio = formatarDataSorteioExtenso(valDateInicio);
+        const dataEncerramento = formatarDataEncerramentoExtenso(valDateEncerramento, valHoraEncerramento);
+
+        const badgeInicio = document.getElementById('badge-preview-inicio');
+        if (badgeInicio) badgeInicio.textContent = dataInicio;
+
+        const badgeEncerramento = document.getElementById('badge-preview-encerramento');
+        if (badgeEncerramento) badgeEncerramento.textContent = dataEncerramento;
+
+        if ((tabAtual === 'abertura-padrao' || tabAtual === 'lembrete-fechamento') && txtArea) {
+          const ciclo = getCicloVisualizado();
+          txtArea.value = aplicarParametrosDinamicosNoTexto(txtArea.value, {
+            nomeBolao: state.nomeBolao || 'Bolão dos amigos',
+            cicloNome: ciclo.nome || 'Edição 1',
+            concursoInicial: ciclo.concursoInicial || 3064,
+            dataInicio,
+            dataEncerramento,
+            chavePix
+          });
+          // Se o usuário alterou parâmetros dinâmicos em relação ao modelo original, sinaliza status editado
+          atualizarBadgeStatusMensagem('editado');
         }
       };
       el.addEventListener('input', handler);

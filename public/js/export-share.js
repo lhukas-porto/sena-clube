@@ -98,9 +98,9 @@ const ExportShare = {
    * Modelo Padrão de Abertura de Novo Bolão
    */
   gerarMensagemAberturaPadrao(params = {}) {
-    const nomeBolao = params.nomeBolao || 'Bolão entre Amigos';
+    const nomeBolao = params.nomeBolao || 'Bolão dos amigos';
     const cicloNome = (params.cicloNome || 'Nova Edição').replace(/Ciclo\s*/i, 'Edição ');
-    const concursoInicial = params.concursoInicial || '3061';
+    const concursoInicial = params.concursoInicial || '3064';
     const dataInicio = params.dataInicio || 'Terça-feira';
     const dataEncerramento = params.dataEncerramento || 'Domingo às 20h';
     const valorCota = params.valorCota ? `R$ ${Number(params.valorCota).toFixed(2).replace('.', ',')}` : 'R$ 30,00';
@@ -142,7 +142,7 @@ const ExportShare = {
    * Modelo de Lembrete / Contagem Regressiva de Fechamento de Apostas
    */
   gerarMensagemLembreteFechamento(params = {}) {
-    const nomeBolao = params.nomeBolao || 'Bolão entre Amigos';
+    const nomeBolao = params.nomeBolao || 'Bolão dos amigos';
     const dataEncerramento = params.dataEncerramento || 'HOJE às 20h';
     const chavePix = params.chavePix || '';
 
@@ -206,7 +206,7 @@ const ExportShare = {
    * Convite Rápido e Direto para Novos Apostadores
    */
   gerarMensagemConviteRapido(params = {}) {
-    const nomeBolao = params.nomeBolao || 'Bolão entre Amigos';
+    const nomeBolao = params.nomeBolao || 'Bolão dos amigos';
     const valorCota = params.valorCota ? `R$ ${Number(params.valorCota).toFixed(2).replace('.', ',')}` : 'R$ 30,00';
     const whatsapp = params.whatsapp || '(61) 99627-2630';
     const whatsappLink = params.whatsappLink || 'https://wa.me/5561996272630';
