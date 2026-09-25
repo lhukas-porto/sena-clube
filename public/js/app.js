@@ -117,6 +117,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   await carregarEstado();
   sincronizarUltimoCaixaHeader();
   renderApp();
+
+  // Se a URL contiver ?admin=1 e o usuário ainda não estiver autenticado, abre o modal de login
+  const urlParams = new URLSearchParams(window.location.search);
+  const wantsAdmin = urlParams.get('admin') === '1' || urlParams.get('admin') === 'true';
+  if (!state.isAdmin && wantsAdmin) {
+    setTimeout(() => {
+      abrirModalLoginAdmin();
+    }, 250);
+  }
 });
 
 // ==========================================================================
@@ -127,6 +136,11 @@ async function salvarEstado() {
 
   // Garante que o ciclo ativo sempre existe no array global
   getCicloVisualizado();
+
+  // Salva no localStorage como backup resiliente imediato
+  try {
+    localStorage.setItem('senaclube_backup_ciclos', JSON.stringify(state.ciclos));
+  } catch (e) {}
 
   const token = sessionStorage.getItem('senaclube_admin_token') || localStorage.getItem('senaclube_admin_token');
 
@@ -247,12 +261,30 @@ async function carregarEstado() {
             return c;
           });
           state.cicloVisualizadoId = data.cicloVisualizadoId || state.ciclos[0].id;
+          try {
+            localStorage.setItem('senaclube_backup_ciclos', JSON.stringify(state.ciclos));
+          } catch (e) {}
         }
       }
     }
   } catch (e) {
     console.warn('[SenaClube] Aviso ao carregar dados do servidor:', e.message);
   }
+
+  // Resiliência contra perda acidental: se o ciclo carregado estiver sem apostas mas o backup local tiver apostas, preserva
+  try {
+    const cicloAtivo = getCicloVisualizado();
+    if (cicloAtivo && (!cicloAtivo.apostas || cicloAtivo.apostas.length === 0)) {
+      const localBackup = localStorage.getItem('senaclube_backup_ciclos');
+      if (localBackup) {
+        const parsed = JSON.parse(localBackup);
+        if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].apostas && parsed[0].apostas.length > 0) {
+          console.info('[SenaClube] Recuperando apostas salvas do backup local resiliente');
+          state.ciclos = parsed;
+        }
+      }
+    }
+  } catch (e) {}
 
   // Garante que o estado sempre tenha pelo menos uma edição ativa conectada
   getCicloVisualizado();
@@ -1125,6 +1157,111 @@ window.editarAposta = function(id) {
 };
 
 // ==========================================================================
+// Acesso Administrativo & Utilidades Globais de Mensagem
+// ==========================================================================
+function abrirModalLoginAdmin() {
+  const userInput = document.getElementById('admin-user-input');
+  const passInput = document.getElementById('admin-pass-input');
+  const errBox = document.getElementById('admin-login-error');
+  if (userInput) userInput.value = '';
+  if (passInput) passInput.value = '';
+  if (errBox) errBox.classList.add('hidden');
+  abrirModal('modal-login-admin');
+  setTimeout(() => passInput?.focus() || userInput?.focus(), 150);
+}
+window.abrirModalLoginAdmin = abrirModalLoginAdmin;
+
+function aplicarParametrosDinamicosNoTexto(textoOriginal, params = {}) {
+  if (!textoOriginal || typeof textoOriginal !== 'string') return '';
+  let texto = textoOriginal;
+
+  const nomeBolao = (params.nomeBolao || state.nomeBolao || 'Bolão dos amigos').trim();
+  const cicloNome = (params.cicloNome || 'Edição 1').replace(/Ciclo\s*/i, 'Edição ');
+  const concursoInicial = String(params.concursoInicial || '3064');
+  const dataInicio = params.dataInicio || 'Terça-feira (29/09)';
+  const dataEncerramento = params.dataEncerramento || 'Segunda-feira (28/09) até as 20h';
+  const chavePix = (params.chavePix !== undefined ? params.chavePix : (state.chavePix || '')).trim();
+  const valorCota = params.valorCota ? (typeof params.valorCota === 'number' ? `R$ ${params.valorCota.toFixed(2).replace('.', ',')}` : params.valorCota) : 'R$ 30,00';
+
+  // 1. Limpeza estrita de qualquer menção legada a "WM" ou resíduos
+  texto = texto.replace(/BOLÃO\s+WM\s+ENTRE\s+AMIGOS\s*(?:—|-)?\s*SENACLUBE/gi, nomeBolao.toUpperCase());
+  texto = texto.replace(/BOLÃO\s+WM\s+ENTRE\s+AMIGOS/gi, nomeBolao.toUpperCase());
+  texto = texto.replace(/Bolão WM entre amigos/gi, nomeBolao);
+  texto = texto.replace(/\bWM\b/g, '').replace(/\s{2,}/g, ' ');
+
+  // 2. Remove emojis corrompidos ou fragmentados
+  texto = texto.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '');
+
+  // 3. Função auxiliar para substituir mantendo rigorosamente as quebras de linha existentes (seja \n ou \n\n)
+  const replaceLinePreservingSpacing = (source, regexPattern, singleLineContent) => {
+    let replaced = false;
+    return source.replace(regexPattern, (match, prefix, trailingBreak) => {
+      if (!replaced) {
+        replaced = true;
+        return `${singleLineContent}${trailingBreak !== undefined ? trailingBreak : ''}`;
+      }
+      return ''; // Elimina qualquer duplicata subsequente
+    });
+  };
+
+  // Cabeçalho oficial: 🏆 *NOME DO BOLÃO — EDIÇÃO X*
+  texto = replaceLinePreservingSpacing(
+    texto,
+    /((?:🏆\s*)?\*[^\n*]+?\s*—\s*(?:EDIÇÃO|Ciclo|Edição)\s*\d+\*[^\n]*)(\r?\n*)/gi,
+    `🏆 *${nomeBolao.toUpperCase()} — ${cicloNome.toUpperCase()}*`
+  );
+
+  // Concurso Inicial
+  texto = replaceLinePreservingSpacing(
+    texto,
+    /(📌\s*\*Concurso Inicial:\*[^\n]*)(\r?\n*)/gi,
+    `📌 *Concurso Inicial:* ${concursoInicial}`
+  );
+
+  // Primeiro Sorteio
+  texto = replaceLinePreservingSpacing(
+    texto,
+    /(🗓️\s*\*(?:Primeiro|1º)\s*Sorteio:\*[^\n]*)(\r?\n*)/gi,
+    `🗓️ *Primeiro Sorteio:* ${dataInicio}`
+  );
+
+  // Prazo Limite
+  texto = replaceLinePreservingSpacing(
+    texto,
+    /(⏰\s*\*(?:Prazo Limite(?: para Apostas)?|Prazo Final(?: Impreterível)?|Encerramento(?:\s*das\s*Apostas)?):\*[^\n]*)(\r?\n*)/gi,
+    `⏰ *Prazo Limite para Apostas:* ${dataEncerramento}`
+  );
+
+  // Valor da Cota
+  texto = replaceLinePreservingSpacing(
+    texto,
+    /(💰\s*\*Valor(?: por Jogo\/Cota| da Cota):\*[^\n]*)(\r?\n*)/gi,
+    `💰 *Valor por Jogo/Cota:* ${valorCota}`
+  );
+
+  // Chave Pix (apenas se existir no texto do usuário)
+  if (chavePix && /🔑\s*\*(?:Chave\s*)?Pix:\*/i.test(texto)) {
+    texto = replaceLinePreservingSpacing(
+      texto,
+      /(🔑\s*\*(?:Chave\s*)?Pix:\*[^\n]*)(\r?\n*)/gi,
+      `🔑 *Chave Pix:* ${chavePix}`
+    );
+  }
+
+  // Placeholders flexíveis {{...}}
+  texto = texto
+    .replace(/\{\{nomeBolao\}\}/gi, nomeBolao)
+    .replace(/\{\{cicloNome\}\}/gi, cicloNome)
+    .replace(/\{\{concursoInicial\}\}/gi, concursoInicial)
+    .replace(/\{\{dataInicio\}\}/gi, dataInicio)
+    .replace(/\{\{dataEncerramento\}\}/gi, dataEncerramento)
+    .replace(/\{\{chavePix\}\}/gi, chavePix);
+
+  return texto;
+}
+window.aplicarParametrosDinamicosNoTexto = aplicarParametrosDinamicosNoTexto;
+
+// ==========================================================================
 // Event Listeners e Modais
 // ==========================================================================
 function setupEventListeners() {
@@ -1787,7 +1924,7 @@ function setupEventListeners() {
   document.getElementById('btn-sync-caixa').addEventListener('click', sincronizarProximoConcursoCaixa);
 
   // Form: Salvar Aposta Individual
-  document.getElementById('form-aposta').addEventListener('submit', (e) => {
+  document.getElementById('form-aposta').addEventListener('submit', async (e) => {
     e.preventDefault();
     const ciclo = getCicloVisualizado();
     if (isApostasFechadas(ciclo)) {
@@ -1857,7 +1994,7 @@ function setupEventListeners() {
       });
     }
 
-    salvarEstado();
+    await salvarEstado();
     fecharModal('modal-aposta');
     renderApp();
   });
@@ -2011,7 +2148,7 @@ function setupEventListeners() {
   }
 
   // Ação ao Confirmar e Salvar Apostas do WhatsApp
-  document.getElementById('btn-import-whatsapp').addEventListener('click', () => {
+  document.getElementById('btn-import-whatsapp').addEventListener('click', async () => {
     const ciclo = getCicloVisualizado();
     if (isApostasFechadas(ciclo)) {
       alert('🔒 Ação bloqueada: As apostas deste ciclo já estão fechadas! Conforme as regras, nenhuma aposta pode ser importada ou alterada.');
@@ -2072,7 +2209,7 @@ function setupEventListeners() {
       novasAdicionadas++;
     });
 
-    salvarEstado();
+    await salvarEstado();
     fecharModal('modal-whatsapp');
     renderApp();
 
@@ -2298,97 +2435,6 @@ function setupEventListeners() {
       'convite-rapido': 'Convite Rápido'
     };
     return nomes[tabKey] || 'Mensagem';
-  }
-
-  // Função Central: Aplica parâmetros dinâmicos (datas, hora, concurso, edição, nome do bolão, pix)
-  // e formata com espaçamento visual arejado qualquer texto (padrão ou customizado)
-  function aplicarParametrosDinamicosNoTexto(textoOriginal, params = {}) {
-    if (!textoOriginal || typeof textoOriginal !== 'string') return '';
-    let texto = textoOriginal;
-
-    const nomeBolao = (params.nomeBolao || state.nomeBolao || 'Bolão dos amigos').trim();
-    const cicloNome = (params.cicloNome || 'Edição 1').replace(/Ciclo\s*/i, 'Edição ');
-    const concursoInicial = String(params.concursoInicial || '3064');
-    const dataInicio = params.dataInicio || 'Terça-feira (29/09)';
-    const dataEncerramento = params.dataEncerramento || 'Segunda-feira (28/09) até as 20h';
-    const chavePix = (params.chavePix !== undefined ? params.chavePix : (state.chavePix || '')).trim();
-    const valorCota = params.valorCota ? (typeof params.valorCota === 'number' ? `R$ ${params.valorCota.toFixed(2).replace('.', ',')}` : params.valorCota) : 'R$ 30,00';
-
-    // 1. Limpeza estrita de qualquer menção legada a "WM" ou resíduos
-    texto = texto.replace(/BOLÃO\s+WM\s+ENTRE\s+AMIGOS\s*(?:—|-)?\s*SENACLUBE/gi, nomeBolao.toUpperCase());
-    texto = texto.replace(/BOLÃO\s+WM\s+ENTRE\s+AMIGOS/gi, nomeBolao.toUpperCase());
-    texto = texto.replace(/Bolão WM entre amigos/gi, nomeBolao);
-    texto = texto.replace(/\bWM\b/g, '').replace(/\s{2,}/g, ' ');
-
-    // 2. Remove emojis corrompidos ou fragmentados
-    texto = texto.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '');
-
-    // 3. Função auxiliar para substituir mantendo rigorosamente as quebras de linha existentes (seja \n ou \n\n)
-    const replaceLinePreservingSpacing = (source, regexPattern, singleLineContent) => {
-      let replaced = false;
-      return source.replace(regexPattern, (match, prefix, trailingBreak) => {
-        if (!replaced) {
-          replaced = true;
-          return `${singleLineContent}${trailingBreak !== undefined ? trailingBreak : ''}`;
-        }
-        return ''; // Elimina qualquer duplicata subsequente
-      });
-    };
-
-    // Cabeçalho oficial: 🏆 *NOME DO BOLÃO — EDIÇÃO X*
-    texto = replaceLinePreservingSpacing(
-      texto,
-      /((?:🏆\s*)?\*[^\n*]+?\s*—\s*(?:EDIÇÃO|Ciclo|Edição)\s*\d+\*[^\n]*)(\r?\n*)/gi,
-      `🏆 *${nomeBolao.toUpperCase()} — ${cicloNome.toUpperCase()}*`
-    );
-
-    // Concurso Inicial
-    texto = replaceLinePreservingSpacing(
-      texto,
-      /(📌\s*\*Concurso Inicial:\*[^\n]*)(\r?\n*)/gi,
-      `📌 *Concurso Inicial:* ${concursoInicial}`
-    );
-
-    // Primeiro Sorteio
-    texto = replaceLinePreservingSpacing(
-      texto,
-      /(🗓️\s*\*(?:Primeiro|1º)\s*Sorteio:\*[^\n]*)(\r?\n*)/gi,
-      `🗓️ *Primeiro Sorteio:* ${dataInicio}`
-    );
-
-    // Prazo Limite
-    texto = replaceLinePreservingSpacing(
-      texto,
-      /(⏰\s*\*(?:Prazo Limite(?: para Apostas)?|Prazo Final(?: Impreterível)?|Encerramento(?:\s*das\s*Apostas)?):\*[^\n]*)(\r?\n*)/gi,
-      `⏰ *Prazo Limite para Apostas:* ${dataEncerramento}`
-    );
-
-    // Valor da Cota
-    texto = replaceLinePreservingSpacing(
-      texto,
-      /(💰\s*\*Valor(?: por Jogo\/Cota| da Cota):\*[^\n]*)(\r?\n*)/gi,
-      `💰 *Valor por Jogo/Cota:* ${valorCota}`
-    );
-
-    // Chave Pix (apenas se existir no texto do usuário)
-    if (chavePix && /🔑\s*\*(?:Chave\s*)?Pix:\*/i.test(texto)) {
-      texto = replaceLinePreservingSpacing(
-        texto,
-        /(🔑\s*\*(?:Chave\s*)?Pix:\*[^\n]*)(\r?\n*)/gi,
-        `🔑 *Chave Pix:* ${chavePix}`
-      );
-    }
-
-    // Placeholders flexíveis {{...}}
-    texto = texto
-      .replace(/\{\{nomeBolao\}\}/gi, nomeBolao)
-      .replace(/\{\{cicloNome\}\}/gi, cicloNome)
-      .replace(/\{\{concursoInicial\}\}/gi, concursoInicial)
-      .replace(/\{\{dataInicio\}\}/gi, dataInicio)
-      .replace(/\{\{dataEncerramento\}\}/gi, dataEncerramento)
-      .replace(/\{\{chavePix\}\}/gi, chavePix);
-
-    return texto;
   }
 
   function atualizarBadgeStatusMensagem(status, horaSalvamento = null) {
@@ -2813,19 +2859,8 @@ function setupEventListeners() {
   });
 
   // ==========================================================================
-  // Controle de Acesso Administrativo (Botão no Header & 3 cliques no rodapé)
+  // Controle de Acesso Administrativo (3 cliques no rodapé)
   // ==========================================================================
-  function abrirModalLoginAdmin() {
-    const userInput = document.getElementById('admin-user-input');
-    const passInput = document.getElementById('admin-pass-input');
-    const errBox = document.getElementById('admin-login-error');
-    if (userInput) userInput.value = '';
-    if (passInput) passInput.value = '';
-    if (errBox) errBox.classList.add('hidden');
-    abrirModal('modal-login-admin');
-    setTimeout(() => passInput?.focus() || userInput?.focus(), 150);
-  }
-
   let easterEggClicks = 0;
   let easterEggTimer = null;
   const easterEggEl = document.getElementById('footer-easter-egg');
