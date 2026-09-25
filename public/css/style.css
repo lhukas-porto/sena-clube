@@ -1134,6 +1134,10 @@ body {
   max-width: 720px;
 }
 
+.modal-card.modal-xl {
+  max-width: 1080px;
+}
+
 .modal-card.modal-sm {
   max-width: 400px;
 }
@@ -1497,17 +1501,64 @@ body.is-admin .historico-meta-grid {
   }
 }
 
+/* Central de Mensagens WhatsApp Expandida */
+.modal-whatsapp-central {
+  max-width: 1080px !important;
+  width: 95vw !important;
+  max-height: 94vh !important;
+  min-height: 600px;
+}
+
+.modal-whatsapp-central .modal-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding: 18px 24px;
+  overflow-y: auto;
+}
+
+.modal-whatsapp-central .finalizar-tabs-row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  margin-bottom: 14px;
+  scrollbar-width: thin;
+}
+
+.modal-whatsapp-central .finalizar-tabs-row::-webkit-scrollbar {
+  height: 4px;
+}
+
+.modal-whatsapp-central .finalizar-tabs-row::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 4px;
+}
+
+.modal-whatsapp-central .msg-tab-btn {
+  flex: 1 1 auto;
+  text-align: center;
+  white-space: nowrap;
+  padding: 10px 14px;
+  font-size: 0.84rem;
+}
+
 .relatorio-textarea {
   background: #0d131f;
   color: #e2e8f0;
   font-family: 'Consolas', 'Courier New', monospace;
-  font-size: 0.88rem;
+  font-size: 0.90rem;
   line-height: 1.6;
   resize: vertical;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   padding: 14px;
   width: 100%;
+  min-height: 380px;
+  height: 440px;
+  flex: 1;
   box-sizing: border-box;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
@@ -2497,6 +2548,8 @@ body.is-admin .historico-meta-grid {
 
   .modal-card,
   .modal-card.modal-lg,
+  .modal-card.modal-xl,
+  .modal-whatsapp-central,
   .modal-card.modal-sm,
   #modal-config .modal-card {
     max-width: 100% !important;
@@ -2504,6 +2557,21 @@ body.is-admin .historico-meta-grid {
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     max-height: 90vh;
     animation: slideUp 0.25s ease;
+  }
+
+  .modal-whatsapp-central {
+    min-height: 80vh !important;
+  }
+
+  .modal-whatsapp-central .msg-tab-btn {
+    flex: 0 0 auto;
+    padding: 8px 12px;
+    font-size: 0.78rem;
+  }
+
+  .modal-whatsapp-central .relatorio-textarea {
+    min-height: 250px;
+    height: 300px;
   }
 
   .modal-header {
