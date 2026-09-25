@@ -17,14 +17,14 @@ const ExportShare = {
     msg += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
     if (concursos.length === 0) {
-      msg += `📌 *Edição Iniciando:* Concurso ${cicloAtual.concursoInicial || '3058'}\n`;
+      msg += `📌 *Edição Iniciando:* Concurso ${cicloAtual.concursoInicial || '3064'}\n\n`;
       msg += `⏳ *Status:* Aguardando primeiro sorteio oficial!\n\n`;
     } else {
       const primeiro = concursos[0].numero;
       const ultimo = concursos[concursos.length - 1].numero;
       msg += `🎯 *Edição Atual:* Concursos ${primeiro} a ${ultimo} (${concursos.length} sorteios acumulados)\n\n`;
 
-      msg += `🎲 *DEZENAS SORTEADAS NESTA EDIÇÃO:*\n`;
+      msg += `🎲 *DEZENAS SORTEADAS NESTA EDIÇÃO:*\n\n`;
       concursos.forEach((c, idx) => {
         const dezenasStr = c.dezenas.join(' - ');
         msg += `• *${idx + 1}º Sorteio (Conc. ${c.numero})*: [ ${dezenasStr} ]\n`;
@@ -34,59 +34,61 @@ const ExportShare = {
 
     // Regra da Quadra no 1º sorteio
     if (ganhadoresQuadraPrimeiroSorteio && ganhadoresQuadraPrimeiroSorteio.length > 0) {
-      msg += `✨ *GANHADOR(ES) DA QUADRA NO 1º SORTEIO:*\n`;
+      msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
+      msg += `✨ *GANHADOR(ES) DA QUADRA NO 1º SORTEIO:*\n\n`;
       ganhadoresQuadraPrimeiroSorteio.forEach(g => {
-        msg += `🎉 *${g.nome}* acertou ${g.acertosNoPrimeiroSorteio} dezenas na abertura da edição!\n`;
+        msg += `🎉 *${g.nome}* acertou ${g.acertosNoPrimeiroSorteio} dezenas na abertura da edição!\n\n`;
       });
       if (financeiro.valorPagoQuadra > 0) {
-        msg += `💵 *Valor Pago da Quadra:* R$ ${financeiro.valorPagoQuadra.toFixed(2).replace('.', ',')}\n`;
+        msg += `💵 *Valor Pago da Quadra:* R$ ${financeiro.valorPagoQuadra.toFixed(2).replace('.', ',')}\n\n`;
       }
-      msg += `\n`;
     }
 
     // Ganhador da Sena
     if (ganhadoresSena && ganhadoresSena.length > 0) {
-      msg += `🏆 *GRANDE CAMPEÃO DO BOLÃO (6 ACERTOS ACUMULADOS):*\n`;
+      msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
+      msg += `🏆 *GRANDE CAMPEÃO DO BOLÃO (6 ACERTOS ACUMULADOS):*\n\n`;
       ganhadoresSena.forEach(g => {
-        msg += `👑 *${g.nome}* fechou a cartela com 6 números! PARABÉNS! 🍾\n`;
+        msg += `👑 *${g.nome}* fechou a cartela com 6 números! PARABÉNS! 🍾\n\n`;
       });
-      msg += `\n`;
     }
 
     // Ranking de Líderes
-    msg += `🏅 *RANKING DE PONTUAÇÃO (TOP APOSTAS):*\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `🏅 *RANKING DE PONTUAÇÃO (TOP APOSTAS):*\n\n`;
     const ordenadas = [...apostas].sort((a, b) => b.totalAcertos - a.totalAcertos);
     const topApostas = ordenadas.slice(0, 10);
 
     if (topApostas.length === 0) {
-      msg += `(Nenhuma aposta cadastrada)\n`;
+      msg += `(Nenhuma aposta cadastrada)\n\n`;
     } else {
       topApostas.forEach((a, idx) => {
         const pos = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx + 1}º`;
         const estrelas = '⭐'.repeat(Math.min(a.totalAcertos, 6));
-        msg += `${pos} *${a.nome}*: ${a.totalAcertos}/6 acertos ${estrelas}\n`;
+        msg += `${pos} *${a.nome}*: ${a.totalAcertos}/6 acertos ${estrelas}\n\n`;
       });
     }
 
     // Resumo financeiro enxuto para grupos (sem Arrecadação Bruta, sem Taxa do Organizador e sem Pagas/Pendentes)
-    msg += `\n━━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `💰 *RESUMO DO BOLÃO:*\n\n`;
     const labelAmigos = financeiro.totalApostadores === 1 ? 'amigo' : 'amigos';
     const labelApostas = financeiro.totalApostas === 1 ? 'aposta' : 'apostas';
-    msg += `👥 *Total de Apostas:* ${financeiro.totalApostas} ${labelApostas} (${financeiro.totalApostadores} ${labelAmigos})\n`;
-    msg += `💰 *Valor da Cota:* R$ ${financeiro.valorCota.toFixed(2).replace('.', ',')}\n`;
-    msg += `💰 *Total Líquido do Bolão:* R$ ${financeiro.totalLiquidoGeralArrecadado.toFixed(2).replace('.', ',')}\n`;
+    msg += `👥 *Total de Apostas:* ${financeiro.totalApostas} ${labelApostas} (${financeiro.totalApostadores} ${labelAmigos})\n\n`;
+    msg += `💵 *Valor da Cota:* R$ ${financeiro.valorCota.toFixed(2).replace('.', ',')}\n\n`;
+    msg += `📊 *Total Líquido Arrecadado:* R$ ${financeiro.totalLiquidoGeralArrecadado.toFixed(2).replace('.', ',')}\n\n`;
     
     if (financeiro.valorPagoQuadra > 0) {
-      msg += `🎯 *Prêmio da Quadra (1º Sorteio):* R$ ${financeiro.valorPagoQuadra.toFixed(2).replace('.', ',')}\n`;
-      msg += `🏆 *Prêmio da Sena (Líquido Restante):* R$ ${financeiro.premioSenaLiquido.toFixed(2).replace('.', ',')}\n`;
+      msg += `🎯 *Prêmio da Quadra (1º Sorteio):* R$ ${financeiro.valorPagoQuadra.toFixed(2).replace('.', ',')}\n\n`;
+      msg += `🏆 *Prêmio da Sena (Líquido Restante):* R$ ${financeiro.premioSenaLiquido.toFixed(2).replace('.', ',')}\n\n`;
     } else if (financeiro.premioQuadraConfig > 0) {
       const label = financeiro.premioQuadraDinamico ? '🎯 *Reserva da Quadra (10% do Líquido):*' : '🎯 *Reserva da Quadra (1º Sorteio):*';
-      msg += `${label} R$ ${financeiro.premioQuadraConfig.toFixed(2).replace('.', ',')} *(Deduzido se houver acertador)*\n`;
-      msg += `🏆 *Prêmio da Sena:* R$ ${financeiro.premioSenaLiquido.toFixed(2).replace('.', ',')}\n`;
+      msg += `${label} R$ ${financeiro.premioQuadraConfig.toFixed(2).replace('.', ',')} *(Deduzido se houver acertador)*\n\n`;
+      msg += `🏆 *Prêmio da Sena:* R$ ${financeiro.premioSenaLiquido.toFixed(2).replace('.', ',')}\n\n`;
     } else {
-      msg += `🏆 *Prêmio da Sena:* R$ ${financeiro.premioSenaLiquido.toFixed(2).replace('.', ',')}\n`;
+      msg += `🏆 *Prêmio da Sena:* R$ ${financeiro.premioSenaLiquido.toFixed(2).replace('.', ',')}\n\n`;
     }
-    msg += `\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
     msg += `📲 *Acompanhe as cartelas atualizadas no SenaClube!* Boa sorte a todos! 🍀`;
 
     return msg;
@@ -117,23 +119,25 @@ const ExportShare = {
     msg += `🏆 *${nomeBolao.toUpperCase()} — ${cicloNome.toUpperCase()}*\n`;
     msg += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
     msg += `Fala, amigos! Está oficialmente aberto o período de apostas e renovações para a nossa próxima edição do bolão da Mega-Sena!\n\n`;
-    msg += `📌 *Concurso Inicial:* ${concursoInicial}\n`;
-    msg += `🗓️ *Primeiro Sorteio:* ${dataInicio}\n`;
-    msg += `⏰ *Prazo Limite para Apostas:* ${dataEncerramento}\n`;
-    msg += `💰 *Valor por Jogo/Cota:* ${valorCota}\n`;
+    msg += `📌 *Concurso Inicial:* ${concursoInicial}\n\n`;
+    msg += `🗓️ *Primeiro Sorteio:* ${dataInicio}\n\n`;
+    msg += `⏰ *Prazo Limite para Apostas:* ${dataEncerramento}\n\n`;
+    msg += `💰 *Valor por Jogo/Cota:* ${valorCota}\n\n`;
     
     if (infoQuadra) {
-      msg += `🎯 *Prêmio Especial da Quadra (1º Sorteio):* ${infoQuadra}\n`;
+      msg += `🎯 *Prêmio Especial da Quadra (1º Sorteio):* ${infoQuadra}\n\n`;
     }
     
     if (chavePix) {
-      msg += `🔑 *Chave Pix:* ${chavePix}\n`;
+      msg += `🔑 *Chave Pix:* ${chavePix}\n\n`;
     }
     
-    msg += `\n📝 *COMO PARTICIPAR:*\n`;
-    msg += `1️⃣ Envie suas 6 dezenas no privado para mim, ou confirme que mantém seu jogo anterior.\n`;
-    msg += `2️⃣ Realize o Pix da sua cota e envie o comprovante.\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `📝 *COMO PARTICIPAR:*\n\n`;
+    msg += `1️⃣ Envie suas 6 dezenas no privado para mim, ou confirme que mantém seu jogo anterior.\n\n`;
+    msg += `2️⃣ Realize o Pix da sua cota e envie o comprovante.\n\n`;
     msg += `3️⃣ Após o prazo, o sistema travará as apostas e nenhum jogo poderá ser alterado!\n\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
     msg += `Boa sorte a todos, vamos buscar essa Sena juntos! 💰🚀`;
     return msg;
   },
@@ -147,16 +151,18 @@ const ExportShare = {
     const chavePix = params.chavePix || '';
 
     let msg = `🚨 *ÚLTIMO AVISO — AS APOSTAS VÃO FECHAR!* ⏰\n`;
-    msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
     msg += `Amigos do *${nomeBolao}*, estamos nos momentos finais para encerramento das inscrições!\n\n`;
     msg += `⏳ *Prazo Final Impreterível:* ${dataEncerramento}\n\n`;
-    msg += `⚠️ *Atenção à Regra de Ouro:*\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `⚠️ *Atenção à Regra de Ouro:*\n\n`;
     msg += `Assim que as apostas forem finalizadas no sistema, elas serão *travadas de forma permanente* — nenhuma aposta poderá ser incluída ou alterada!\n\n`;
     
     if (chavePix) {
       msg += `🔑 *Chave Pix:* ${chavePix}\n\n`;
     }
 
+    msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
     msg += `Quem não confirmou ou não enviou o comprovante, corre que ainda dá tempo! 🏃‍♂️💨🍀`;
     return msg;
   },
@@ -165,7 +171,7 @@ const ExportShare = {
    * Convite Completo e Explicativo para Novos Apostadores
    */
   gerarMensagemConviteCompleto(params = {}) {
-    const nomeBolao = params.nomeBolao || 'SenaClube';
+    const nomeBolao = params.nomeBolao || 'Bolão dos amigos';
     const valorCota = params.valorCota ? `R$ ${Number(params.valorCota).toFixed(2).replace('.', ',')}` : 'R$ 30,00';
     const whatsapp = params.whatsapp || '(61) 99627-2630';
     const whatsappLink = params.whatsappLink || 'https://wa.me/5561996272630';
@@ -176,21 +182,24 @@ const ExportShare = {
     msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
     msg += `E aí, tudo bem? Quero te fazer um convite especial para participar do nosso bolão entre amigos: o *${nomeBolao}*!\n\n`;
     msg += `Se você nunca participou, fica tranquilo que a dinâmica é simples, muito divertida e com chances reais de vitória! Veja como funciona:\n\n`;
-    msg += `🎯 *COMO FUNCIONA O JOGO:*\n`;
-    msg += `1️⃣ *Você escolhe 6 dezenas* da sua sorte (de 01 a 60).\n`;
-    msg += `2️⃣ *Sua aposta vale por uma EDIÇÃO INTEIRA* de sorteios — ou seja, você não joga para apenas um dia, seu jogo continua ativo e acumulando acertos a cada sorteio da Mega-Sena da Caixa até termos um vencedor!\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `🎯 *COMO FUNCIONA O JOGO:*\n\n`;
+    msg += `1️⃣ *Você escolhe 6 dezenas* da sua sorte (de 01 a 60).\n\n`;
+    msg += `2️⃣ *Sua aposta vale por uma EDIÇÃO INTEIRA* de sorteios — ou seja, você não joga para apenas um dia, seu jogo continua ativo e acumulando acertos a cada sorteio da Mega-Sena da Caixa até termos um vencedor!\n\n`;
     msg += `3️⃣ *Valor da cota:* Apenas ${valorCota} por edição! (Você pode ter mais de uma cota se quiser).\n\n`;
-    msg += `🏆 *AS FORMAS DE GANHAR:*\n`;
-    msg += `💰 *Prêmio Máximo da Sena:* Quem cravar os 6 acertos ao longo da edição leva a bolada principal do bolão!\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `🏆 *AS FORMAS DE GANHAR:*\n\n`;
+    msg += `💰 *Prêmio Máximo da Sena:* Quem cravar os 6 acertos ao longo da edição leva a bolada principal do bolão!\n\n`;
     msg += `⚡ *Prêmio Bônus da Quadra:* Logo no 1º sorteio da edição, se alguém acertar a quadra (4 números), já fatura na hora um prêmio bônus de incentivo!\n\n`;
-    msg += `📱 *TRANSPARÊNCIA TOTAL EM TEMPO REAL:*\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `📱 *TRANSPARÊNCIA TOTAL EM TEMPO REAL:*\n\n`;
     msg += `Nosso bolão conta com um painel online exclusivo! Você acompanha o ranking de acertos, a apuração automática direto da Caixa e o placar em tempo real:\n`;
     msg += `👉 ${linkApp}\n\n`;
-    msg += `🔒 *REGRA DE OURO DA CONFIANÇA:*\n`;
+    msg += `🔒 *REGRA DE OURO DA CONFIANÇA:*\n\n`;
     msg += `Assim que o prazo de inscrições encerra, o sistema trava todas as apostas de forma permanente. Ninguém altera e ninguém inclui jogos de última hora — 100% de transparência e segurança para todos!\n\n`;
-    msg += `⚠️ *AVISO IMPORTANTE (TRANSPARÊNCIA TOTAL):*\n`;
+    msg += `⚠️ *AVISO IMPORTANTE (TRANSPARÊNCIA TOTAL):*\n\n`;
     msg += `Este é um *bolão particular e recreativo entre amigos*. Ele *NÃO é uma aposta oficial registrada na Caixa Econômica Federal*. Utilizamos exclusivamente as dezenas dos sorteios oficiais da Mega-Sena como base pública e imparcial para nossa apuração interna e premiações do grupo.\n\n`;
-    msg += `👥 *ENTRE NO NOSSO GRUPO DO WHATSAPP:*\n`;
+    msg += `👥 *ENTRE NO NOSSO GRUPO DO WHATSAPP:*\n\n`;
     msg += `Acompanhe todos os avisos, sorteios e a resenha dos participantes direto no grupo:\n`;
     msg += `👉 ${linkGrupoWhatsApp}\n\n`;
     msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
@@ -215,13 +224,14 @@ const ExportShare = {
 
     let msg = `Fala, amigo! Beleza? 🚀\n\n`;
     msg += `Estamos abrindo as vagas para a nova edição do nosso *${nomeBolao}* e lembrei de você! 🍀\n\n`;
-    msg += `É bem diferente de uma aposta comum:\n`;
-    msg += `✅ Você escolhe *6 números* e eles valem para *vários sorteios seguidos* até sair um vencedor!\n`;
-    msg += `✅ Tem o prêmio principal da *Sena* e prêmio rápido de *Quadra* logo no primeiro sorteio!\n`;
-    msg += `✅ Temos um sistema online onde todo mundo acompanha os acertos e o ranking ao vivo: ${linkApp}\n`;
+    msg += `É bem diferente de uma aposta comum:\n\n`;
+    msg += `✅ Você escolhe *6 números* e eles valem para *vários sorteios seguidos* até sair um vencedor!\n\n`;
+    msg += `✅ Tem o prêmio principal da *Sena* e prêmio rápido de *Quadra* logo no primeiro sorteio!\n\n`;
+    msg += `✅ Temos um sistema online onde todo mundo acompanha os acertos e o ranking ao vivo:\n👉 ${linkApp}\n\n`;
     msg += `✅ Cota super acessível: apenas *${valorCota}*.\n\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
     msg += `⚠️ *Aviso importante:* Este é um bolão privado entre amigos, *não é aposta oficial da lotérica*. Os sorteios da Caixa são usados apenas como base para apuração do nosso grupo.\n\n`;
-    msg += `👥 *Entre no nosso grupo do WhatsApp:* ${linkGrupoWhatsApp}\n\n`;
+    msg += `👥 *Entre no nosso grupo do WhatsApp:*\n👉 ${linkGrupoWhatsApp}\n\n`;
     msg += `Bora entrar nessa com a gente e torcer junto?\n\n`;
     msg += `Para garantir sua vaga, só me mandar suas 6 dezenas no WhatsApp:\n`;
     msg += `📲 *${whatsapp}* (${whatsappLink})\n\n`;

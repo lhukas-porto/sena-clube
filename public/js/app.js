@@ -205,12 +205,13 @@ async function carregarEstado() {
         if (state.textosWhatsAppCustomizados && typeof state.textosWhatsAppCustomizados === 'object') {
           Object.keys(state.textosWhatsAppCustomizados).forEach(k => {
             if (typeof state.textosWhatsAppCustomizados[k] === 'string') {
-              state.textosWhatsAppCustomizados[k] = state.textosWhatsAppCustomizados[k]
-                .replace(/BOLÃO\s+WM\s+ENTRE\s+AMIGOS\s*(?:—|-)?\s*SENACLUBE/gi, (state.nomeBolao || 'Bolão dos amigos').toUpperCase())
-                .replace(/BOLÃO\s+WM\s+ENTRE\s+AMIGOS/gi, (state.nomeBolao || 'Bolão dos amigos').toUpperCase())
-                .replace(/Bolão WM entre amigos/gi, state.nomeBolao || 'Bolão dos amigos')
-                .replace(/\bWM\b/g, '')
-                .replace(/\s{2,}/g, ' ');
+              let t = state.textosWhatsAppCustomizados[k];
+              // Desembola itens colados e normaliza parâmetros
+              t = aplicarParametrosDinamicosNoTexto(t, {
+                nomeBolao: state.nomeBolao,
+                chavePix: state.chavePix
+              });
+              state.textosWhatsAppCustomizados[k] = t;
             }
           });
           try {
@@ -2072,8 +2073,8 @@ function setupEventListeners() {
   }
 
   // Função Central: Aplica parâmetros dinâmicos (datas, hora, concurso, edição, nome do bolão, pix)
-  // sobre qualquer texto (seja o modelo padrão ou um modelo customizado salvo pelo usuário)
-  function aplicarParametrosDinamicosNoTexto(textoOriginal, params) {
+  // e formata com espaçamento visual arejado qualquer texto (padrão ou customizado)
+  function aplicarParametrosDinamicosNoTexto(textoOriginal, params = {}) {
     if (!textoOriginal || typeof textoOriginal !== 'string') return '';
     let texto = textoOriginal;
 
@@ -2090,51 +2091,93 @@ function setupEventListeners() {
     texto = texto.replace(/Bolão WM entre amigos/gi, nomeBolao);
     texto = texto.replace(/\bWM\b/g, '').replace(/\s{2,}/g, ' ');
 
-    // 2. Cabeçalho oficial: 🏆 *NOME DO BOLÃO — EDIÇÃO X*
+    // 2. Normalização de divisores visuais
+    texto = texto.replace(/\s*(━{5,})\s*/g, '\n\n$1\n\n');
+    texto = texto.replace(/(━{5,}\n+)\s*(Fala,\s*[^!\n]+!)/gi, '$1$2\n\n');
+
+    // 3. Separação de frases e blocos importantes que ficaram colados sem quebra de linha
+    // Aceita qualquer emoji, símbolo ou espaço antes do asterisco
+    const camposImportantes = [
+      'Concurso Inicial',
+      '(?:Primeiro|1º)\\s*Sorteio',
+      'Prazo Limite(?:\\s*para\\s*Apostas)?',
+      'Prazo Final(?:\\s*Impreterível)?',
+      'Encerramento(?:\\s*das\\s*Apostas)?',
+      'Valor(?:\\s*por\\s*Jogo\\/Cota|\\s*da\\s*Cota)',
+      'Prêmio\\s*(?:Especial\\s*da\\s*)?Quadra[^\\n*]*',
+      '(?:Chave\\s*)?Pix'
+    ];
+
+    camposImportantes.forEach(campo => {
+      // Linha antes: se não houver \n\n antes do campo, insere
+      const regAntes = new RegExp('([^\\n])\\s*([^a-zA-Z0-9\\n]*\\*' + campo + ':\\*)', 'gi');
+      texto = texto.replace(regAntes, '$1\n\n$2');
+      // Linha depois: se a próxima linha estiver colada sem \n\n
+      const regDepois = new RegExp('((\\*' + campo + ':\\*[^\\n]*))\\n?([^\\n\\s])', 'gi');
+      texto = texto.replace(regDepois, '$1\n\n$2');
+    });
+
+    // 4. Divisores e Como Participar
+    texto = texto.replace(/([^\n])\s*([^a-zA-Z0-9\n]*\*COMO PARTICIPAR:\*)/gi, '$1\n\n━━━━━━━━━━━━━━━━━━━━━\n\n$2');
+    texto = texto.replace(/(\*COMO PARTICIPAR:\*[^\n]*)\n?([^\n\s])/gi, '$1\n\n$2');
+
+    // 5. Passos numerados (1️⃣, 2️⃣, 3️⃣)
+    ['1️⃣', '2️⃣', '3️⃣'].forEach(num => {
+      const regStepAntes = new RegExp('([^\\n])\\s*(' + num + '[^\\n]*)', 'gi');
+      texto = texto.replace(regStepAntes, '$1\n\n$2');
+      const regStepDepois = new RegExp('(' + num + '[^\\n]*)\\n?([^\\n\\s])', 'gi');
+      texto = texto.replace(regStepDepois, '$1\n\n$2');
+    });
+
+    // 6. Mensagens de encerramento / Boa sorte
+    texto = texto.replace(/([^\n])\s*(Boa sorte[^\n]*)/gi, '$1\n\n━━━━━━━━━━━━━━━━━━━━━\n\n$2');
+    texto = texto.replace(/([^\n])\s*(Quem não confirmou[^\n]*)/gi, '$1\n\n━━━━━━━━━━━━━━━━━━━━━\n\n$2');
+
+    // 7. Cabeçalho oficial: 🏆 *NOME DO BOLÃO — EDIÇÃO X*
     const regexCabecalho = /(🏆\s*\*)[^\n*]+?(?:\s*—\s*(?:EDIÇÃO|Ciclo|Edição)\s*\d+)?(\*)/i;
     if (regexCabecalho.test(texto)) {
       texto = texto.replace(regexCabecalho, `$1${nomeBolao.toUpperCase()} — ${cicloNome.toUpperCase()}$2`);
     }
 
-    // 3. Concurso Inicial: 📌 *Concurso Inicial:* 3064
-    const regexConcurso = /(📌\s*\*Concurso Inicial:\*)\s*[^\n]*/i;
+    // 8. Concurso Inicial: Aceita qualquer emoji anterior e atualiza de forma limpa
+    const regexConcurso = /([^a-zA-Z0-9\n]*\*Concurso Inicial:\*)\s*[^\n]*/i;
     if (regexConcurso.test(texto)) {
-      texto = texto.replace(regexConcurso, `$1 ${concursoInicial}`);
+      texto = texto.replace(regexConcurso, `📌 *Concurso Inicial:* ${concursoInicial}`);
     }
 
-    // 4. Data do 1º Sorteio: 🗓️ *Primeiro Sorteio:* ...
-    const regexInicio = /(🗓️\s*\*(?:Primeiro|1º)\s*Sorteio:\*)\s*[^\n]*/i;
+    // 9. Data do 1º Sorteio:
+    const regexInicio = /([^a-zA-Z0-9\n]*\*(?:Primeiro|1º)\s*Sorteio:\*)\s*[^\n]*/i;
     if (regexInicio.test(texto)) {
-      texto = texto.replace(regexInicio, `$1 ${dataInicio}`);
+      texto = texto.replace(regexInicio, `🗓️ *Primeiro Sorteio:* ${dataInicio}`);
     }
 
-    // 5. Prazo Limite / Encerramento das Apostas: ⏰ *Prazo Limite...* / ⏳ *Prazo Final...*
-    const regexPrazo = /(⏰\s*\*Prazo Limite(?: para Apostas)?:\*|⏳\s*\*Prazo Final(?: Impreterível)?:\*|⏰\s*\*Encerramento(?:\s*das\s*Apostas)?:\*)\s*[^\n]*/i;
+    // 10. Prazo Limite / Encerramento das Apostas:
+    const regexPrazo = /([^a-zA-Z0-9\n]*\*(?:Prazo Limite(?: para Apostas)?|Prazo Final(?: Impreterível)?|Encerramento(?:\s*das\s*Apostas)?):\*)\s*[^\n]*/i;
     if (regexPrazo.test(texto)) {
-      texto = texto.replace(regexPrazo, `$1 ${dataEncerramento}`);
+      texto = texto.replace(regexPrazo, `⏰ *Prazo Limite:* ${dataEncerramento}`);
     }
 
-    // 6. Chave Pix: Atualização ou Inserção Dinâmica
-    const regexPix = /\n?🔑\s*\*(?:Chave\s*)?Pix:\*\s*[^\n]*/i;
+    // 11. Chave Pix: Atualização ou Inserção Dinâmica
+    const regexPix = /\n*([^a-zA-Z0-9\n]*\*(?:Chave\s*)?Pix:\*)\s*[^\n]*/i;
     if (chavePix) {
       if (regexPix.test(texto)) {
-        texto = texto.replace(regexPix, `\n🔑 *Chave Pix:* ${chavePix}`);
+        texto = texto.replace(regexPix, `\n\n🔑 *Chave Pix:* ${chavePix}`);
       } else {
-        const regexAposQuadra = /(🎯\s*\*Prêmio Especial da Quadra[^\n]*\n)/i;
-        const regexAposCota = /(💰\s*\*Valor por Jogo\/Cota:[^\n]*\n)/i;
-        const regexAntesRegras = /(\n\s*📝\s*\*COMO PARTICIPAR:\*)/i;
-        const regexAntesFechamento = /(\n\s*Quem não confirmou)/i;
+        const regexAposQuadra = /(🎯\s*\*Prêmio Especial da Quadra[^\n]*\n*)/i;
+        const regexAposCota = /(💰\s*\*Valor por Jogo\/Cota:[^\n]*\n*)/i;
+        const regexAntesRegras = /(\n*📝\s*\*COMO PARTICIPAR:\*)/i;
+        const regexAntesFechamento = /(\n*Quem não confirmou)/i;
 
         if (regexAposQuadra.test(texto)) {
-          texto = texto.replace(regexAposQuadra, `$1🔑 *Chave Pix:* ${chavePix}\n`);
+          texto = texto.replace(regexAposQuadra, `$1\n\n🔑 *Chave Pix:* ${chavePix}\n\n`);
         } else if (regexAposCota.test(texto)) {
-          texto = texto.replace(regexAposCota, `$1🔑 *Chave Pix:* ${chavePix}\n`);
+          texto = texto.replace(regexAposCota, `$1\n\n🔑 *Chave Pix:* ${chavePix}\n\n`);
         } else if (regexAntesRegras.test(texto)) {
-          texto = texto.replace(regexAntesRegras, `\n🔑 *Chave Pix:* ${chavePix}\n$1`);
+          texto = texto.replace(regexAntesRegras, `\n\n🔑 *Chave Pix:* ${chavePix}\n\n$1`);
         } else if (regexAntesFechamento.test(texto)) {
-          texto = texto.replace(regexAntesFechamento, `\n🔑 *Chave Pix:* ${chavePix}\n\n$1`);
+          texto = texto.replace(regexAntesFechamento, `\n\n🔑 *Chave Pix:* ${chavePix}\n\n$1`);
         } else {
-          texto += `\n🔑 *Chave Pix:* ${chavePix}\n`;
+          texto += `\n\n🔑 *Chave Pix:* ${chavePix}\n`;
         }
       }
     } else {
@@ -2142,7 +2185,7 @@ function setupEventListeners() {
       texto = texto.replace(regexPix, '');
     }
 
-    // 7. Placeholders flexíveis {{...}}
+    // 12. Placeholders flexíveis {{...}}
     texto = texto
       .replace(/\{\{nomeBolao\}\}/gi, nomeBolao)
       .replace(/\{\{cicloNome\}\}/gi, cicloNome)
@@ -2150,6 +2193,9 @@ function setupEventListeners() {
       .replace(/\{\{dataInicio\}\}/gi, dataInicio)
       .replace(/\{\{dataEncerramento\}\}/gi, dataEncerramento)
       .replace(/\{\{chavePix\}\}/gi, chavePix);
+
+    // 13. Normalização final de quebras de linha para evitar acúmulo excessivo
+    texto = texto.replace(/\n{3,}/g, '\n\n').trim();
 
     return texto;
   }
@@ -2271,9 +2317,7 @@ function setupEventListeners() {
 
     if (hasCustom && !forcarRegeneracao) {
       let textoSalvo = state.textosWhatsAppCustomizados[tabAtual];
-      if (tabAtual === 'abertura-padrao' || tabAtual === 'lembrete-fechamento') {
-        textoSalvo = aplicarParametrosDinamicosNoTexto(textoSalvo, dynamicParams);
-      }
+      textoSalvo = aplicarParametrosDinamicosNoTexto(textoSalvo, dynamicParams);
       if (txtArea) txtArea.value = textoSalvo;
       atualizarBadgeStatusMensagem('customizado');
       return;
