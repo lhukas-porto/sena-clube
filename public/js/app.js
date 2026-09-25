@@ -201,21 +201,8 @@ function atualizarHeaderNomeBolao() {
   }
 }
 
-function mostrarIndicadorSalvamento(sucesso, salvando = false) {
-  const el = document.getElementById('footer-save-indicator');
-  if (!el) return;
-  if (salvando) {
-    el.textContent = '⏳ Sincronizando com Supabase...';
-    el.style.color = '#f59e0b';
-    return;
-  }
-  if (sucesso) {
-    el.textContent = '☁️ Conectado e salvo na nuvem';
-    el.style.color = 'var(--emerald-primary)';
-  } else {
-    el.textContent = '⚠️ Modo offline (salvo localmente)';
-    el.style.color = '#ef4444';
-  }
+function mostrarIndicadorSalvamento() {
+  // Indicador de rodapé removido a pedido do usuário
 }
 
 // ==========================================================================
