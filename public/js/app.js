@@ -2710,13 +2710,6 @@ function setupEventListeners() {
     setTimeout(() => passInput?.focus() || userInput?.focus(), 150);
   }
 
-  const btnTriggerLogin = document.getElementById('btn-trigger-login-admin');
-  if (btnTriggerLogin) {
-    btnTriggerLogin.addEventListener('click', () => {
-      abrirModalLoginAdmin();
-    });
-  }
-
   let easterEggClicks = 0;
   let easterEggTimer = null;
   const easterEggEl = document.getElementById('footer-easter-egg');
