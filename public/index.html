@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Syne:wght@700;800&display=swap" rel="stylesheet">
   
-  <link rel="stylesheet" href="css/style.css?v=5.8">
+  <link rel="stylesheet" href="css/style.css?v=6.0">
 </head>
 <body>
 
@@ -485,121 +485,254 @@
   </div>
 
   <!-- Modal: Configurações do Bolão (com campo Prêmio da Quadra) -->
+  <!-- Modal: Configurações do Bolão (com campo Prêmio da Quadra e Área do Admin) -->
   <div id="modal-config" class="modal-overlay hidden">
     <div class="modal-card">
       <div class="modal-header">
-        <h3>Configurações do Bolão</h3>
+        <div class="modal-title-wrap">
+          <span style="font-size: 1.4rem;">⚙️</span>
+          <h3>Configurações do Sistema</h3>
+        </div>
         <button class="modal-close" data-close="modal-config">&times;</button>
       </div>
-      <form id="form-config">
-        <div class="modal-body">
-          <div class="form-group">
-            <label for="config-nome">Nome do Bolão</label>
-            <input type="text" id="config-nome" placeholder="Nome do seu bolão">
-            <small class="form-hint">Nome principal exibido no cabeçalho e mensagens.</small>
-          </div>
 
-          <div class="form-row">
-            <div class="form-group">
-              <label for="config-concurso-inicial">Concurso Inicial da Edição *</label>
-              <input type="number" id="config-concurso-inicial" placeholder="Ex: 3058" required>
-              <small class="form-hint">Primeiro concurso oficial apurado na edição.</small>
-            </div>
-            <div class="form-group">
-              <label for="config-valor-cota">Valor de Cada Jogo (R$) *</label>
-              <input type="number" id="config-valor-cota" step="0.50" min="0" placeholder="24.00" required>
-              <small class="form-hint">Valor cobrado por cota/participante.</small>
-            </div>
-          </div>
+      <!-- Abas de Navegação das Configurações -->
+      <div class="finalizar-tabs config-tabs" style="margin: 0 20px 14px 20px;">
+        <button type="button" class="finalizar-tab-btn config-tab-btn active" data-config-tab="geral">
+          ⚙️ Parâmetros do Bolão
+        </button>
+        <button type="button" class="finalizar-tab-btn config-tab-btn admin-only" data-config-tab="seguranca-admin">
+          🔐 Acesso & Senha do Admin
+        </button>
+      </div>
 
-          <div class="form-row">
+      <!-- Aba 1: Parâmetros Gerais do Bolão -->
+      <div id="config-tab-geral" class="config-tab-pane">
+        <form id="form-config">
+          <div class="modal-body">
             <div class="form-group">
-              <label for="config-taxa-organizador">Taxa do Organizador (%)</label>
-              <input type="number" id="config-taxa-organizador" min="0" max="100" value="20" required>
-              <small class="form-hint">Padrão: 20% deduzido do total arrecadado.</small>
+              <label for="config-nome">Nome do Bolão</label>
+              <input type="text" id="config-nome" placeholder="Nome do seu bolão">
+              <small class="form-hint">Nome principal exibido no cabeçalho e mensagens.</small>
             </div>
-            <div class="form-group">
-              <div class="form-label-row">
-                <label for="config-premio-quadra">Prêmio da Quadra (R$)</label>
-                <div class="form-label-actions">
-                  <label class="checkbox-inline" title="Calcular automaticamente 10% do líquido arrecadado de cotas pagas">
-                    <input type="checkbox" id="config-quadra-dinamica" checked> Dinâmico
-                  </label>
-                  <button type="button" id="btn-recalc-quadra-config" class="btn btn-xs btn-outline" style="font-size: 0.72rem; padding: 2px 7px;" title="Recalcular automaticamente 10% do líquido das apostas pagas">⚡ 10%</button>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="config-concurso-inicial">Concurso Inicial da Edição *</label>
+                <input type="number" id="config-concurso-inicial" placeholder="Ex: 3058" required>
+                <small class="form-hint">Primeiro concurso oficial apurado na edição.</small>
+              </div>
+              <div class="form-group">
+                <label for="config-valor-cota">Valor de Cada Jogo (R$) *</label>
+                <input type="number" id="config-valor-cota" step="0.50" min="0" placeholder="24.00" required>
+                <small class="form-hint">Valor cobrado por cota/participante.</small>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="config-taxa-organizador">Taxa do Organizador (%)</label>
+                <input type="number" id="config-taxa-organizador" min="0" max="100" value="20" required>
+                <small class="form-hint">Padrão: 20% deduzido do total arrecadado.</small>
+              </div>
+              <div class="form-group">
+                <div class="form-label-row">
+                  <label for="config-premio-quadra">Prêmio da Quadra (R$)</label>
+                  <div class="form-label-actions">
+                    <label class="checkbox-inline" title="Calcular automaticamente 10% do líquido arrecadado de cotas pagas">
+                      <input type="checkbox" id="config-quadra-dinamica" checked> Dinâmico
+                    </label>
+                    <button type="button" id="btn-recalc-quadra-config" class="btn btn-xs btn-outline" style="font-size: 0.72rem; padding: 2px 7px;" title="Recalcular automaticamente 10% do líquido das apostas pagas">⚡ 10%</button>
+                  </div>
+                </div>
+                <input type="number" id="config-premio-quadra" step="any" min="0" placeholder="0.00" value="0">
+                <small id="config-premio-quadra-hint" class="form-hint">10% dinâmico do líquido de cotas pagas.</small>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                  <label for="config-pix" style="margin-bottom: 0;">Chave PIX do Organizador</label>
+                  <span id="badge-tipo-pix" style="font-size: 0.72rem; padding: 2px 7px; border-radius: 4px; background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); font-weight: 500;">
+                    📄 CPF
+                  </span>
+                </div>
+                <input type="text" id="config-pix" placeholder="000.000.000-00 ou (61) 99627-2630" maxlength="36" autocomplete="off">
+                <small class="form-hint" id="config-pix-hint">Máscara automática: CPF, Celular, CNPJ ou E-mail.</small>
+              </div>
+              <div class="form-group">
+                <label for="config-celular">Celular / WhatsApp do Organizador</label>
+                <input type="text" id="config-celular" placeholder="(61) 99627-2630" maxlength="15" autocomplete="tel">
+                <small class="form-hint">Contato oficial para envio de comprovantes.</small>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="config-whatsapp-grupo">Link do Grupo do WhatsApp</label>
+                <input type="url" id="config-whatsapp-grupo" placeholder="https://chat.whatsapp.com/KT4gbhyKUUrBqW9fU2ZGpv">
+                <small class="form-hint">Link de convite direto para o grupo.</small>
+              </div>
+              <div class="form-group">
+                <label for="config-site-app">Site para Acesso ao Sistema</label>
+                <input type="url" id="config-site-app" placeholder="https://sena-clube.vercel.app">
+                <small class="form-hint">Link do painel online divulgado.</small>
+              </div>
+            </div>
+
+            <div class="danger-zone">
+              <h4>⚠️ Zona de Reinicialização & Manutenção</h4>
+              <div class="danger-zone-grid">
+                <div class="danger-item">
+                  <p>Importar / copiar todas as apostas da edição imediatamente anterior para esta edição:</p>
+                  <button type="button" id="btn-copiar-apostas-anterior" class="btn btn-sm btn-outline">
+                    📋 Copiar Apostas da Edição Anterior
+                  </button>
+                </div>
+                <div class="danger-item">
+                  <p>Zerar os sorteios apurados da edição atual (mantendo participantes e cotas):</p>
+                  <button type="button" id="btn-zerar-ciclo" class="btn btn-sm btn-danger-outline">
+                    🔄 Reiniciar Sorteios
+                  </button>
+                </div>
+                <div class="danger-item">
+                  <p>Excluir permanentemente todas as apostas cadastradas desta edição:</p>
+                  <button type="button" id="btn-excluir-todas-apostas" class="btn btn-sm btn-danger-outline">
+                    🗑️ Excluir Apostas
+                  </button>
+                </div>
+                <div class="danger-item">
+                  <p>Excluir esta edição (zerando sorteios e mantendo apostadores para nova apuração):</p>
+                  <button type="button" id="btn-excluir-ciclo-atual" class="btn btn-sm btn-danger">
+                    💣 Excluir Edição
+                  </button>
                 </div>
               </div>
-              <input type="number" id="config-premio-quadra" step="any" min="0" placeholder="0.00" value="0">
-              <small id="config-premio-quadra-hint" class="form-hint">10% dinâmico do líquido de cotas pagas.</small>
             </div>
           </div>
 
-          <div class="form-row">
-            <div class="form-group">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                <label for="config-pix" style="margin-bottom: 0;">Chave PIX do Organizador</label>
-                <span id="badge-tipo-pix" style="font-size: 0.72rem; padding: 2px 7px; border-radius: 4px; background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); font-weight: 500;">
-                  📄 CPF
-                </span>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-close="modal-config">Fechar</button>
+            <button type="submit" class="btn btn-primary" id="btn-salvar-config">Salvar Configurações</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Aba 2: Segurança & Credenciais do Administrador -->
+      <div id="config-tab-seguranca" class="config-tab-pane hidden">
+        <div class="modal-body">
+          <!-- Card de Status do Administrador -->
+          <div class="admin-account-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1.6rem;">👑</span>
+                <div>
+                  <strong style="color: #ffffff; font-size: 1.05rem;">Painel de Acesso do Administrador</strong>
+                  <p style="font-size: 0.78rem; color: var(--text-secondary); margin: 0;">Gestão de credenciais mestras e segurança</p>
+                </div>
               </div>
-              <input type="text" id="config-pix" placeholder="000.000.000-00 ou (61) 99627-2630" maxlength="36" autocomplete="off">
-              <small class="form-hint" id="config-pix-hint">Máscara automática: CPF, Celular, CNPJ ou E-mail.</small>
+              <button type="button" id="btn-admin-logout-card" class="btn btn-xs btn-danger-outline" title="Encerrar sessão de administrador">
+                🚪 Sair da Sessão
+              </button>
             </div>
-            <div class="form-group">
-              <label for="config-celular">Celular / WhatsApp do Organizador</label>
-              <input type="text" id="config-celular" placeholder="(61) 99627-2630" maxlength="15" autocomplete="tel">
-              <small class="form-hint">Contato oficial para envio de comprovantes.</small>
+
+            <div class="admin-security-grid">
+              <div class="admin-security-item">
+                <span class="label">Usuário Ativo</span>
+                <strong id="admin-current-user-display" style="color: var(--emerald-primary);">admin</strong>
+              </div>
+              <div class="admin-security-item">
+                <span class="label">Status</span>
+                <span style="color: #10b981; font-size: 0.85rem; font-weight: 600;">🟢 Conectado</span>
+              </div>
+              <div class="admin-security-item">
+                <span class="label">Última Modificação</span>
+                <span id="admin-updated-at-display" style="color: var(--text-muted); font-size: 0.8rem;">Padrão do Sistema</span>
+              </div>
             </div>
           </div>
 
-          <div class="form-row">
-            <div class="form-group">
-              <label for="config-whatsapp-grupo">Link do Grupo do WhatsApp</label>
-              <input type="url" id="config-whatsapp-grupo" placeholder="https://chat.whatsapp.com/KT4gbhyKUUrBqW9fU2ZGpv">
-              <small class="form-hint">Link de convite direto para o grupo.</small>
+          <!-- Formulário de Modificação de Credenciais -->
+          <form id="form-admin-credentials">
+            <div style="margin-bottom: 14px;">
+              <h4 style="font-size: 0.95rem; margin-bottom: 4px; color: #ffffff; display: flex; align-items: center; gap: 6px;">
+                <span>🔑</span> Alterar Usuário e Senha de Acesso
+              </h4>
+              <p style="font-size: 0.8rem; color: var(--text-secondary); margin: 0;">
+                Atualize o login ou a senha mestra. A nova credencial é protegida com criptografia e sincronizada na nuvem.
+              </p>
             </div>
-            <div class="form-group">
-              <label for="config-site-app">Site para Acesso ao Sistema</label>
-              <input type="url" id="config-site-app" placeholder="https://sena-clube.vercel.app">
-              <small class="form-hint">Link do painel online divulgado.</small>
-            </div>
-          </div>
 
-          <div class="danger-zone">
-            <h4>⚠️ Zona de Reinicialização & Manutenção</h4>
-            <div class="danger-zone-grid">
-              <div class="danger-item">
-                <p>Importar / copiar todas as apostas da edição imediatamente anterior para esta edição:</p>
-                <button type="button" id="btn-copiar-apostas-anterior" class="btn btn-sm btn-outline">
-                  📋 Copiar Apostas da Edição Anterior
-                </button>
+            <!-- Novo Login (Usuário) -->
+            <div class="form-group">
+              <label for="admin-input-new-user">Nome de Usuário (Login)</label>
+              <input type="text" id="admin-input-new-user" placeholder="Ex: admin ou lucas" maxlength="32" autocomplete="username" required>
+              <small class="form-hint">Nome utilizado no login para liberar os controles restritos.</small>
+            </div>
+
+            <!-- Senha Atual -->
+            <div class="form-group">
+              <label for="admin-input-current-pass">Senha Atual do Administrador *</label>
+              <div class="pass-input-wrap">
+                <input type="password" id="admin-input-current-pass" placeholder="Digite sua senha atual para autorizar" autocomplete="current-password" required>
+                <button type="button" class="btn-toggle-eye" data-target="admin-input-current-pass" title="Ver / Ocultar Senha">👁️</button>
               </div>
-              <div class="danger-item">
-                <p>Zerar os sorteios apurados da edição atual (mantendo participantes e cotas):</p>
-                <button type="button" id="btn-zerar-ciclo" class="btn btn-sm btn-danger-outline">
-                  🔄 Reiniciar Sorteios
-                </button>
+              <small class="form-hint">Necessário informar a senha atual para confirmar que é você.</small>
+            </div>
+
+            <div class="form-row">
+              <!-- Nova Senha -->
+              <div class="form-group">
+                <label for="admin-input-new-pass">Nova Senha *</label>
+                <div class="pass-input-wrap">
+                  <input type="password" id="admin-input-new-pass" placeholder="Mínimo 6 caracteres" autocomplete="new-password" minlength="6" required>
+                  <button type="button" class="btn-toggle-eye" data-target="admin-input-new-pass" title="Ver / Ocultar Senha">👁️</button>
+                </div>
+                <!-- Medidor de Força -->
+                <div class="strength-meter-wrap">
+                  <div class="strength-meter-bar">
+                    <div id="admin-pass-strength-fill" class="strength-meter-fill"></div>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+                    <small id="admin-pass-strength-text" style="font-size: 0.72rem; color: var(--text-muted);">Força: Digite uma senha</small>
+                    <small style="font-size: 0.7rem; color: var(--text-muted);">Mín. 6 caracteres</small>
+                  </div>
+                </div>
               </div>
-              <div class="danger-item">
-                <p>Excluir permanentemente todas as apostas cadastradas desta edição:</p>
-                <button type="button" id="btn-excluir-todas-apostas" class="btn btn-sm btn-danger-outline">
-                  🗑️ Excluir Apostas
-                </button>
-              </div>
-              <div class="danger-item">
-                <p>Excluir esta edição (zerando sorteios e mantendo apostadores para nova apuração):</p>
-                <button type="button" id="btn-excluir-ciclo-atual" class="btn btn-sm btn-danger">
-                  💣 Excluir Edição
-                </button>
+
+              <!-- Confirmar Nova Senha -->
+              <div class="form-group">
+                <label for="admin-input-confirm-pass">Confirmar Nova Senha *</label>
+                <div class="pass-input-wrap">
+                  <input type="password" id="admin-input-confirm-pass" placeholder="Repita a nova senha" autocomplete="new-password" minlength="6" required>
+                  <button type="button" class="btn-toggle-eye" data-target="admin-input-confirm-pass" title="Ver / Ocultar Senha">👁️</button>
+                </div>
+                <small id="admin-pass-match-hint" class="form-hint" style="min-height: 18px;"></small>
               </div>
             </div>
-          </div>
+
+            <!-- Caixa de Alerta / Feedback -->
+            <div id="admin-cred-alert" class="hidden" style="margin-top: 12px; font-size: 0.85rem; padding: 10px 14px; border-radius: 8px;"></div>
+
+            <!-- Dicas de Segurança e Boas Práticas -->
+            <div class="admin-tips-card">
+              <span style="font-size: 1.3rem;">🛡️</span>
+              <div>
+                <strong>Segurança & Proteção de Dados:</strong>
+                <p>A nova senha é protegida com criptografia Scrypt de 64 bytes e salt único. Ao salvar, sua sessão neste navegador continua ativa com a nova credencial sem interromper suas atividades.</p>
+              </div>
+            </div>
+
+            <div class="modal-footer" style="padding: 16px 0 0 0; margin-top: 16px; border-top: 1px solid var(--border-subtle); display: flex; justify-content: space-between;">
+              <button type="button" class="btn btn-secondary" data-close="modal-config">Fechar</button>
+              <button type="submit" class="btn btn-primary" id="btn-submit-admin-cred">
+                💾 Salvar Novas Credenciais
+              </button>
+            </div>
+          </form>
         </div>
-
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-close="modal-config">Fechar</button>
-          <button type="submit" class="btn btn-primary" id="btn-salvar-config">Salvar Configurações</button>
-        </div>
-      </form>
+      </div>
     </div>
   </div>
 
@@ -962,6 +1095,6 @@
   <script src="js/whatsapp-parser.js?v=5.8"></script>
   <script src="js/bolao-engine.js?v=5.8"></script>
   <script src="js/export-share.js?v=5.8"></script>
-  <script src="js/app.js?v=5.8"></script>
+  <script src="js/app.js?v=6.0"></script>
 </body>
 </html>

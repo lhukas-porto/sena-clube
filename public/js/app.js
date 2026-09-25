@@ -1769,6 +1769,17 @@ function setupEventListeners() {
     if (document.getElementById('config-site-app')) {
       document.getElementById('config-site-app').value = state.urlSiteAcesso || '';
     }
+    // Resetar abas para Geral ao abrir e carregar dados do perfil
+    const defaultTabBtn = document.querySelector('.config-tab-btn[data-tab="config-tab-geral"]');
+    if (defaultTabBtn) defaultTabBtn.click();
+    if (typeof carregarPerfilAdminNasConfiguracoes === 'function') {
+      carregarPerfilAdminNasConfiguracoes();
+    }
+    const alertBox = document.getElementById('admin-cred-alert');
+    if (alertBox) {
+      alertBox.classList.add('hidden');
+      alertBox.textContent = '';
+    }
     abrirModal('modal-config');
   });
 
@@ -2889,6 +2900,7 @@ function setupEventListeners() {
   if (formLoginAdmin) {
     formLoginAdmin.addEventListener('submit', async (e) => {
       e.preventDefault();
+      const u = (document.getElementById('admin-user-input')?.value || '').trim();
       const p = (document.getElementById('admin-pass-input')?.value || '').trim();
       const btnSubmit = document.getElementById('btn-submit-login-admin');
       const errBox = document.getElementById('admin-login-error');
@@ -2903,17 +2915,21 @@ function setupEventListeners() {
         const res = await fetch('/api/auth', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password: p })
+          body: JSON.stringify({ username: u, password: p })
         });
         const data = await res.json();
 
         if (res.ok && data.success && data.token) {
           sessionStorage.setItem('senaclube_admin_token', data.token);
           localStorage.setItem('senaclube_admin_token', data.token);
+          if (data.username) {
+            sessionStorage.setItem('senaclube_admin_username', data.username);
+            localStorage.setItem('senaclube_admin_username', data.username);
+          }
           state.isAdmin = true;
           document.body.classList.add('is-admin');
           fecharModal('modal-login-admin');
-          mostrarNotificacaoToast('👑 Modo Administrador Ativado com Sucesso!');
+          mostrarNotificacaoToast(`👑 Modo Administrador Ativado (${data.username || 'Admin'})!`);
           renderApp();
         } else {
           if (errBox) {
@@ -2935,17 +2951,358 @@ function setupEventListeners() {
     });
   }
 
-  // Botão Sair do Modo Administrador
+  // Botão Sair do Modo Administrador (no cabeçalho/barra superior)
   const btnLogoutAdmin = document.getElementById('btn-logout-admin');
   if (btnLogoutAdmin) {
     btnLogoutAdmin.addEventListener('click', () => {
       state.isAdmin = false;
       sessionStorage.removeItem('senaclube_admin_token');
+      sessionStorage.removeItem('senaclube_admin_username');
       localStorage.removeItem('senaclube_admin_token');
+      localStorage.removeItem('senaclube_admin_username');
       document.body.classList.remove('is-admin');
       mostrarNotificacaoToast('Modo Consulta Ativado.');
       renderApp();
     });
+  }
+
+  // Botão Sair do Modo Administrador (dentro do card da aba de segurança)
+  const btnLogoutAdminCard = document.getElementById('btn-admin-logout-card');
+  if (btnLogoutAdminCard) {
+    btnLogoutAdminCard.addEventListener('click', () => {
+      state.isAdmin = false;
+      sessionStorage.removeItem('senaclube_admin_token');
+      sessionStorage.removeItem('senaclube_admin_username');
+      localStorage.removeItem('senaclube_admin_token');
+      localStorage.removeItem('senaclube_admin_username');
+      document.body.classList.remove('is-admin');
+      fecharModal('modal-config');
+      mostrarNotificacaoToast('Sessão de Administrador encerrada.');
+      renderApp();
+    });
+  }
+
+  // Alternância de Abas nas Configurações
+  const configTabBtns = document.querySelectorAll('.config-tab-btn');
+  configTabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetTabId = btn.getAttribute('data-tab');
+      configTabBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      document.querySelectorAll('.config-tab-pane').forEach(pane => {
+        pane.classList.remove('active');
+      });
+
+      const targetPane = document.getElementById(targetTabId);
+      if (targetPane) {
+        targetPane.classList.add('active');
+      }
+
+      if (targetTabId === 'config-tab-seguranca') {
+        carregarPerfilAdminNasConfiguracoes();
+      }
+    });
+  });
+
+  // Alternador de Visualização de Senha (Olho 👁️ / 🙈)
+  document.querySelectorAll('.btn-toggle-eye').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetId = btn.getAttribute('data-target');
+      const input = document.getElementById(targetId);
+      if (!input) return;
+      if (input.type === 'password') {
+        input.type = 'text';
+        btn.textContent = '🙈';
+      } else {
+        input.type = 'password';
+        btn.textContent = '👁️';
+      }
+    });
+  });
+
+  // Medidor de Força da Nova Senha e Validação de Confirmação
+  const inputNewPass = document.getElementById('admin-input-new-pass');
+  const inputConfirmPass = document.getElementById('admin-input-confirm-pass');
+
+  function atualizarForcaSenha() {
+    const val = inputNewPass ? inputNewPass.value : '';
+    const fill = document.getElementById('admin-pass-strength-fill');
+    const label = document.getElementById('admin-pass-strength-text');
+    if (!fill || !label) return;
+
+    if (!val) {
+      fill.style.width = '0%';
+      fill.style.background = 'transparent';
+      label.textContent = 'Força: Digite uma senha';
+      label.style.color = 'var(--text-muted)';
+      atualizarMatchSenha();
+      return;
+    }
+
+    let score = 0;
+    if (val.length >= 6) score += 1;
+    if (val.length >= 10) score += 1;
+    if (/[a-z]/.test(val) && /[A-Z]/.test(val)) score += 1;
+    if (/\d/.test(val)) score += 1;
+    if (/[^a-zA-Z0-9]/.test(val)) score += 1;
+
+    if (val.length < 6) {
+      fill.style.width = '20%';
+      fill.style.background = '#ef4444';
+      label.textContent = 'Força: Muito curta (mínimo 6 caracteres)';
+      label.style.color = '#ef4444';
+    } else if (score <= 2) {
+      fill.style.width = '40%';
+      fill.style.background = '#f97316';
+      label.textContent = 'Força: Fraca';
+      label.style.color = '#f97316';
+    } else if (score === 3) {
+      fill.style.width = '65%';
+      fill.style.background = '#eab308';
+      label.textContent = 'Força: Razoável';
+      label.style.color = '#eab308';
+    } else if (score === 4) {
+      fill.style.width = '85%';
+      fill.style.background = '#3b82f6';
+      label.textContent = 'Força: Boa';
+      label.style.color = '#60a5fa';
+    } else {
+      fill.style.width = '100%';
+      fill.style.background = '#10b981';
+      label.textContent = 'Força: Excelente & Segura 🛡️';
+      label.style.color = '#34d399';
+    }
+
+    atualizarMatchSenha();
+  }
+
+  function atualizarMatchSenha() {
+    const hint = document.getElementById('admin-pass-match-hint');
+    if (!hint || !inputConfirmPass) return;
+    const p1 = inputNewPass ? inputNewPass.value : '';
+    const p2 = inputConfirmPass.value;
+
+    if (!p2) {
+      hint.textContent = '';
+      hint.style.color = '';
+      return;
+    }
+
+    if (p1 === p2) {
+      hint.textContent = '✓ As senhas coincidem perfeitamente';
+      hint.style.color = '#10b981';
+    } else {
+      hint.textContent = '✗ As senhas não conferem';
+      hint.style.color = '#ef4444';
+    }
+  }
+
+  if (inputNewPass) {
+    inputNewPass.addEventListener('input', atualizarForcaSenha);
+  }
+  if (inputConfirmPass) {
+    inputConfirmPass.addEventListener('input', atualizarMatchSenha);
+  }
+
+  // Formulário de Alteração de Credenciais Administrativas
+  const formAdminCredentials = document.getElementById('form-admin-credentials');
+  if (formAdminCredentials) {
+    formAdminCredentials.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const alertBox = document.getElementById('admin-cred-alert');
+      const btnSubmit = document.getElementById('btn-submit-admin-cred');
+
+      const newUsername = (document.getElementById('admin-input-new-user')?.value || '').trim();
+      const currentPassword = (document.getElementById('admin-input-current-pass')?.value || '').trim();
+      const newPassword = (document.getElementById('admin-input-new-pass')?.value || '').trim();
+      const confirmPassword = (document.getElementById('admin-input-confirm-pass')?.value || '').trim();
+
+      if (alertBox) {
+        alertBox.classList.add('hidden');
+        alertBox.textContent = '';
+      }
+
+      if (!newUsername || newUsername.length < 3) {
+        if (alertBox) {
+          alertBox.textContent = '⚠️ O nome de usuário precisa ter pelo menos 3 caracteres.';
+          alertBox.style.background = 'rgba(239, 68, 68, 0.15)';
+          alertBox.style.border = '1px solid #ef4444';
+          alertBox.style.color = '#fca5a5';
+          alertBox.classList.remove('hidden');
+        }
+        return;
+      }
+
+      if (!currentPassword) {
+        if (alertBox) {
+          alertBox.textContent = '⚠️ Por favor, digite sua senha atual para autorizar as alterações.';
+          alertBox.style.background = 'rgba(239, 68, 68, 0.15)';
+          alertBox.style.border = '1px solid #ef4444';
+          alertBox.style.color = '#fca5a5';
+          alertBox.classList.remove('hidden');
+        }
+        return;
+      }
+
+      if (!newPassword || newPassword.length < 6) {
+        if (alertBox) {
+          alertBox.textContent = '⚠️ A nova senha deve ter no mínimo 6 caracteres.';
+          alertBox.style.background = 'rgba(239, 68, 68, 0.15)';
+          alertBox.style.border = '1px solid #ef4444';
+          alertBox.style.color = '#fca5a5';
+          alertBox.classList.remove('hidden');
+        }
+        return;
+      }
+
+      if (newPassword !== confirmPassword) {
+        if (alertBox) {
+          alertBox.textContent = '⚠️ A confirmação da nova senha não confere.';
+          alertBox.style.background = 'rgba(239, 68, 68, 0.15)';
+          alertBox.style.border = '1px solid #ef4444';
+          alertBox.style.color = '#fca5a5';
+          alertBox.classList.remove('hidden');
+        }
+        return;
+      }
+
+      const token = sessionStorage.getItem('senaclube_admin_token') || localStorage.getItem('senaclube_admin_token');
+      if (!token) {
+        if (alertBox) {
+          alertBox.textContent = '⚠️ Sessão administrativa ausente ou expirada. Faça login novamente.';
+          alertBox.style.background = 'rgba(239, 68, 68, 0.15)';
+          alertBox.style.border = '1px solid #ef4444';
+          alertBox.style.color = '#fca5a5';
+          alertBox.classList.remove('hidden');
+        }
+        return;
+      }
+
+      if (btnSubmit) {
+        btnSubmit.disabled = true;
+        btnSubmit.textContent = '⏳ Criptografando & Salvando...';
+      }
+
+      try {
+        const res = await fetch('/api/auth', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            action: 'change-credentials',
+            currentPassword,
+            newUsername,
+            newPassword
+          })
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          if (data.token) {
+            sessionStorage.setItem('senaclube_admin_token', data.token);
+            localStorage.setItem('senaclube_admin_token', data.token);
+          }
+          if (data.username) {
+            sessionStorage.setItem('senaclube_admin_username', data.username);
+            localStorage.setItem('senaclube_admin_username', data.username);
+          }
+
+          // Limpa campos confidenciais
+          if (document.getElementById('admin-input-current-pass')) document.getElementById('admin-input-current-pass').value = '';
+          if (document.getElementById('admin-input-new-pass')) document.getElementById('admin-input-new-pass').value = '';
+          if (document.getElementById('admin-input-confirm-pass')) document.getElementById('admin-input-confirm-pass').value = '';
+
+          // Reset medidor
+          const fill = document.getElementById('admin-pass-strength-fill');
+          if (fill) { fill.style.width = '0%'; fill.style.background = 'transparent'; }
+          const label = document.getElementById('admin-pass-strength-text');
+          if (label) { label.textContent = 'Força: Digite uma senha'; label.style.color = 'var(--text-muted)'; }
+          const hint = document.getElementById('admin-pass-match-hint');
+          if (hint) { hint.textContent = ''; }
+
+          if (alertBox) {
+            alertBox.textContent = '✅ Credenciais alteradas com sucesso! Seu novo login e senha já estão salvos e sincronizados com a nuvem.';
+            alertBox.style.background = 'rgba(16, 185, 129, 0.15)';
+            alertBox.style.border = '1px solid #10b981';
+            alertBox.style.color = '#6ee7b7';
+            alertBox.classList.remove('hidden');
+          }
+
+          await carregarPerfilAdminNasConfiguracoes();
+          mostrarNotificacaoToast('🔐 Credenciais do Administrador atualizadas com sucesso!');
+        } else {
+          if (alertBox) {
+            alertBox.textContent = `⚠️ ${data.error || 'Não foi possível alterar as credenciais.'}`;
+            alertBox.style.background = 'rgba(239, 68, 68, 0.15)';
+            alertBox.style.border = '1px solid #ef4444';
+            alertBox.style.color = '#fca5a5';
+            alertBox.classList.remove('hidden');
+          }
+        }
+      } catch (err) {
+        if (alertBox) {
+          alertBox.textContent = '⚠️ Falha na comunicação com o servidor ao salvar credenciais.';
+          alertBox.style.background = 'rgba(239, 68, 68, 0.15)';
+          alertBox.style.border = '1px solid #ef4444';
+          alertBox.style.color = '#fca5a5';
+          alertBox.classList.remove('hidden');
+        }
+      } finally {
+        if (btnSubmit) {
+          btnSubmit.disabled = false;
+          btnSubmit.textContent = '💾 Salvar Novas Credenciais';
+        }
+      }
+    });
+  }
+}
+
+// Carregar Informações do Administrador para exibição na aba de segurança
+async function carregarPerfilAdminNasConfiguracoes() {
+  const token = sessionStorage.getItem('senaclube_admin_token') || localStorage.getItem('senaclube_admin_token');
+  if (!token) return;
+
+  try {
+    const res = await fetch('/api/auth', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.profile) {
+        const u = data.profile.username || 'admin';
+        const displayUser = document.getElementById('admin-current-user-display');
+        if (displayUser) displayUser.textContent = u;
+
+        const inputUser = document.getElementById('admin-input-new-user');
+        if (inputUser && !inputUser.value) {
+          inputUser.value = u;
+        }
+
+        const displayUpdated = document.getElementById('admin-updated-at-display');
+        if (displayUpdated) {
+          if (data.profile.updatedAt) {
+            try {
+              const dt = new Date(data.profile.updatedAt);
+              displayUpdated.textContent = dt.toLocaleString('pt-BR');
+            } catch (e) {
+              displayUpdated.textContent = data.profile.updatedAt;
+            }
+          } else {
+            displayUpdated.textContent = 'Padrão do Sistema';
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[AUTH] Não foi possível obter o perfil administrativo:', err);
   }
 }
 

@@ -4,7 +4,14 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
-import { checkPassword, generateToken, verifyToken } from './api/_auth.js';
+import {
+  checkPassword,
+  generateToken,
+  verifyToken,
+  verifyAdminLogin,
+  updateAdminCredentials,
+  getAdminProfile
+} from './api/_auth.js';
 import { validateBolaoPayload, sanitizePayload } from './api/_validation.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -205,38 +212,97 @@ const server = http.createServer(async (req, res) => {
     if (!pathname.startsWith('/')) pathname = '/' + pathname;
   }
 
-  // --- API: Autenticação de Administrador ---
+  // --- API: Autenticação & Credenciais de Administrador ---
   if (pathname === '/api/auth') {
-    if (req.method !== 'POST') {
-      res.writeHead(405, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({ error: 'Método não permitido' }));
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204, {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+      });
+      return res.end();
+    }
+
+    // GET: Perfil do Administrador
+    if (req.method === 'GET') {
+      const authHeader = req.headers.authorization || req.headers['authorization'] || '';
+      if (!verifyToken(authHeader)) {
+        res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
+        return res.end(JSON.stringify({ success: false, error: 'Acesso não autorizado' }));
+      }
+      try {
+        const profile = await getAdminProfile();
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        return res.end(JSON.stringify({ success: true, profile }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+        return res.end(JSON.stringify({ success: false, error: err.message }));
+      }
     }
 
     let body = '';
     req.on('data', chunk => { body += chunk; });
-    req.on('end', () => {
+    req.on('end', async () => {
       try {
         const parsed = JSON.parse(body || '{}');
-        const password = parsed.password || parsed.senha;
 
-        if (!password || !checkPassword(password)) {
-          res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
+        // Alteração de Credenciais
+        const isChangeAction = req.method === 'PUT' || (req.method === 'POST' && (parsed.action === 'change-credentials' || parsed.currentPassword || parsed.senhaAtual));
+
+        if (isChangeAction) {
+          const authHeader = req.headers.authorization || req.headers['authorization'] || '';
+          if (!verifyToken(authHeader)) {
+            res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
+            return res.end(JSON.stringify({
+              success: false,
+              error: 'É necessário estar autenticado como administrador para alterar credenciais.'
+            }));
+          }
+
+          const currentPassword = parsed.currentPassword || parsed.senhaAtual;
+          const newUsername = parsed.newUsername || parsed.novoUsuario;
+          const newPassword = parsed.newPassword || parsed.novaSenha;
+
+          const result = await updateAdminCredentials({ currentPassword, newUsername, newPassword });
+          const statusCode = result.success ? 200 : 400;
+          res.writeHead(statusCode, { 'Content-Type': 'application/json; charset=utf-8' });
+          return res.end(JSON.stringify(result));
+        }
+
+        // Login Normal
+        if (req.method === 'POST') {
+          const username = parsed.username || parsed.usuario || 'admin';
+          const password = parsed.password || parsed.senha;
+
+          if (!password) {
+            res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+            return res.end(JSON.stringify({ success: false, error: 'A senha é obrigatória.' }));
+          }
+
+          const isValid = await verifyAdminLogin(username, password);
+          if (!isValid) {
+            res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
+            return res.end(JSON.stringify({
+              success: false,
+              error: 'Credencial inválida. Usuário ou senha incorretos.'
+            }));
+          }
+
+          const token = generateToken();
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
           return res.end(JSON.stringify({
-            success: false,
-            error: 'Credencial inválida. Acesso de administrador não autorizado.'
+            success: true,
+            message: 'Autenticado com sucesso!',
+            token,
+            username
           }));
         }
 
-        const token = generateToken();
-        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-        return res.end(JSON.stringify({
-          success: true,
-          message: 'Autenticado com sucesso!',
-          token
-        }));
+        res.writeHead(405, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'Método não permitido' }));
       } catch (err) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify({ error: 'JSON inválido' }));
+        return res.end(JSON.stringify({ error: 'JSON inválido', details: err.message }));
       }
     });
     return;

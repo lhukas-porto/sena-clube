@@ -22,6 +22,40 @@ test('Segurança - Autenticação por Token HMAC', () => {
   assert.equal(verifyToken('token_totalmente_invalido'), false);
 });
 
+test('Segurança - Gerenciamento de Credenciais (Login e Troca de Senha)', async () => {
+  const { verifyAdminLogin, updateAdminCredentials, getAdminProfile } = await import('../api/_auth.js');
+
+  // 1. Login padrão
+  const loginPadrao = await verifyAdminLogin('admin', 'sena2026!');
+  assert.equal(loginPadrao, true);
+
+  const loginInvalido = await verifyAdminLogin('admin', 'senha_errada_123');
+  assert.equal(loginInvalido, false);
+
+  // 2. Tentar trocar com senha atual errada deve falhar
+  const erroSenhaAtual = await updateAdminCredentials({
+    currentPassword: 'senha_errada',
+    newUsername: 'lucas_admin',
+    newPassword: 'nova_senha_forte_2026'
+  });
+  assert.equal(erroSenhaAtual.success, false);
+  assert.match(erroSenhaAtual.error, /incorreta/i);
+
+  // 3. Tentar trocar com senha curta deve falhar (< 6 chars)
+  const erroSenhaCurta = await updateAdminCredentials({
+    currentPassword: 'sena2026!',
+    newUsername: 'lucas_admin',
+    newPassword: '123'
+  });
+  assert.equal(erroSenhaCurta.success, false);
+  assert.match(erroSenhaCurta.error, /mínimo 6/i);
+
+  // 4. Perfil público inicial
+  const profile = await getAdminProfile();
+  assert.ok(profile);
+  assert.ok(typeof profile.username === 'string');
+});
+
 test('Segurança & Integridade - Validação de Schema no Backend', () => {
   // Payload válido
   const valido = {
