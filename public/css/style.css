@@ -1996,15 +1996,37 @@ body:not(.is-admin) .admin-only {
   display: none !important;
 }
 
+body.is-admin .header-container {
+  padding-right: 145px;
+}
+
 .header-admin-badge {
+  position: absolute;
+  top: 14px;
+  right: 24px;
+  z-index: 60;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(245, 158, 11, 0.08) 100%);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.25) 0%, rgba(20, 24, 39, 0.95) 100%);
   border: 1px solid var(--gold-primary);
   border-radius: var(--radius-full);
-  padding: 4px 12px;
-  box-shadow: 0 0 15px rgba(245, 158, 11, 0.2);
+  padding: 5px 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 14px rgba(245, 158, 11, 0.3);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  body.is-admin .header-container {
+    padding-right: 0;
+  }
+  .header-admin-badge {
+    top: 12px;
+    right: 14px;
+    padding: 3px 10px;
+  }
 }
 
 .admin-badge-text {
