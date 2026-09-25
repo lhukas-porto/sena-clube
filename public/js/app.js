@@ -562,23 +562,18 @@ function renderKPIs(apuracao, financeiro, ciclo) {
   // 1. Quadro de Prêmio Líquido (com detalhamento da Quadra e da Sena)
   const elPremioLiquido = document.getElementById('kpi-premio-liquido');
   const elPremioQuadraInfo = document.getElementById('kpi-premio-quadra-info');
-  const elArrecadadoBrutoSub = document.getElementById('kpi-arrecadado-bruto-sub');
-
-  const textoBruto = state.isAdmin ? ` (Bruto: ${formatarMoeda(financeiro.totalArrecadadoBruto)})` : '';
 
   if (financeiro.valorPagoQuadra > 0) {
     // Quadra foi premiada no 1º sorteio: deduz do prêmio da Sena
     elPremioLiquido.textContent = formatarMoeda(financeiro.premioSenaLiquido);
     elPremioQuadraInfo.innerHTML = `🎯 Quadra (1º Sorteio): <strong>${formatarMoeda(financeiro.valorPagoQuadra)}</strong> (Deduzido)`;
     elPremioQuadraInfo.style.color = 'var(--gold-primary)';
-    elArrecadadoBrutoSub.textContent = `Total Líquido: ${formatarMoeda(financeiro.totalLiquidoGeralArrecadado)}${textoBruto}`;
   } else if (financeiro.premioQuadraConfig > 0) {
     // Quadra configurada / calculada dinamicamente
     elPremioLiquido.textContent = formatarMoeda(financeiro.premioSenaLiquido);
     const labelQuadra = financeiro.premioQuadraDinamico ? '🎯 Quadra Dinâmica (10% Líquido):' : '🎯 Quadra Estipulada:';
     elPremioQuadraInfo.innerHTML = `${labelQuadra} <strong>${formatarMoeda(financeiro.premioQuadraConfig)}</strong> (1º Sorteio)`;
     elPremioQuadraInfo.style.color = 'var(--text-secondary)';
-    elArrecadadoBrutoSub.textContent = `Total Líquido: ${formatarMoeda(financeiro.totalLiquidoGeralArrecadado)}${textoBruto}`;
   } else {
     // Sem quadra ou 0 cotas pagas
     elPremioLiquido.textContent = formatarMoeda(financeiro.totalLiquidoGeralArrecadado);
@@ -588,7 +583,6 @@ function renderKPIs(apuracao, financeiro, ciclo) {
       elPremioQuadraInfo.textContent = '🎯 Quadra: Não configurada';
     }
     elPremioQuadraInfo.style.color = 'var(--text-muted)';
-    elArrecadadoBrutoSub.textContent = `Total Líquido: ${formatarMoeda(financeiro.totalLiquidoGeralArrecadado)}${textoBruto}`;
   }
 
   // 2. Taxa do Organizador (20%)
