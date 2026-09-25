@@ -24,5 +24,5 @@
 
 ## Fase 5: Versionamento e Deploy
 - [x] 5.1 Verificar Critic Verification (sem segredos expostos, build OK)
-- [ ] 5.2 Commit com Conventional Commits e Push para o GitHub
-- [ ] 5.3 Deploy para produção na Vercel e confirmação ao usuário
+- [x] 5.2 Commit com Conventional Commits e Push para o GitHub
+- [x] 5.3 Deploy para produção na Vercel e confirmação ao usuário
