@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import BolaoEngine from '../public/js/bolao-engine.js';
+import fs from 'node:fs';
+import vm from 'node:vm';
+
+const code = fs.readFileSync(new URL('../public/js/bolao-engine.js', import.meta.url), 'utf-8');
+const sandbox = { window: {}, console };
+vm.runInNewContext(code, sandbox);
+const BolaoEngine = sandbox.window.BolaoEngine;
 
 test('BolaoEngine - Cálculo Financeiro padrão com taxa de 20% e Quadra dinâmica', () => {
   const apostas = [

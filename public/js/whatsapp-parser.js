@@ -119,4 +119,3 @@ const WhatsAppParser = {
 if (typeof window !== 'undefined') {
   window.WhatsAppParser = WhatsAppParser;
 }
-export default WhatsAppParser;

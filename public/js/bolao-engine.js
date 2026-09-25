@@ -292,4 +292,3 @@ const BolaoEngine = {
 if (typeof window !== 'undefined') {
   window.BolaoEngine = BolaoEngine;
 }
-export default BolaoEngine;
