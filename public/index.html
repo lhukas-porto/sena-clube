@@ -484,16 +484,19 @@
           <div class="form-group">
             <label for="config-nome">Nome do Bolão</label>
             <input type="text" id="config-nome" placeholder="Nome do seu bolão">
+            <small class="form-hint">Nome principal exibido no cabeçalho e mensagens.</small>
           </div>
 
           <div class="form-row">
             <div class="form-group">
               <label for="config-concurso-inicial">Concurso Inicial da Edição *</label>
               <input type="number" id="config-concurso-inicial" placeholder="Ex: 3058" required>
+              <small class="form-hint">Primeiro concurso oficial apurado na edição.</small>
             </div>
             <div class="form-group">
               <label for="config-valor-cota">Valor de Cada Jogo (R$) *</label>
               <input type="number" id="config-valor-cota" step="0.50" min="0" placeholder="24.00" required>
+              <small class="form-hint">Valor cobrado por cota/participante.</small>
             </div>
           </div>
 
@@ -501,21 +504,20 @@
             <div class="form-group">
               <label for="config-taxa-organizador">Taxa do Organizador (%)</label>
               <input type="number" id="config-taxa-organizador" min="0" max="100" value="20" required>
-              <small class="form-hint">Padrão: 20% deduzido do total arrecadado bruto.</small>
+              <small class="form-hint">Padrão: 20% deduzido do total arrecadado.</small>
             </div>
             <div class="form-group">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                <label for="config-premio-quadra" style="margin-bottom: 0;">Prêmio da Quadra (1º Sorteio) (R$)</label>
-                <button type="button" id="btn-recalc-quadra-config" class="btn btn-xs btn-outline" style="font-size: 0.72rem; padding: 2px 8px;" title="Recalcular automaticamente 10% do líquido das apostas pagas">⚡ 10% do Líquido</button>
+              <div class="form-label-row">
+                <label for="config-premio-quadra">Prêmio da Quadra (R$)</label>
+                <div class="form-label-actions">
+                  <label class="checkbox-inline" title="Calcular automaticamente 10% do líquido arrecadado de cotas pagas">
+                    <input type="checkbox" id="config-quadra-dinamica" checked> Dinâmico
+                  </label>
+                  <button type="button" id="btn-recalc-quadra-config" class="btn btn-xs btn-outline" style="font-size: 0.72rem; padding: 2px 7px;" title="Recalcular automaticamente 10% do líquido das apostas pagas">⚡ 10%</button>
+                </div>
               </div>
               <input type="number" id="config-premio-quadra" step="any" min="0" placeholder="0.00" value="0">
-              <div style="margin-top: 6px; display: flex; align-items: center; gap: 8px;">
-                <label style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--text-primary); cursor: pointer;">
-                  <input type="checkbox" id="config-quadra-dinamica" checked style="cursor: pointer;">
-                  <span>Dinâmico (10% do líquido das cotas pagas)</span>
-                </label>
-              </div>
-              <small id="config-premio-quadra-hint" class="form-hint" style="color: var(--text-muted); font-size: 0.75rem; margin-top: 4px;">Calculado dinamicamente com base nas apostas que forem sendo computadas e pagas.</small>
+              <small id="config-premio-quadra-hint" class="form-hint">10% dinâmico do líquido de cotas pagas.</small>
             </div>
           </div>
 
@@ -528,7 +530,7 @@
             <div class="form-group">
               <label for="config-celular">Celular / WhatsApp do Organizador</label>
               <input type="text" id="config-celular" placeholder="(61) 99627-2630">
-              <small class="form-hint">Contato para envio de comprovantes e link wa.me.</small>
+              <small class="form-hint">Contato para envio de comprovantes.</small>
             </div>
           </div>
 
@@ -536,12 +538,12 @@
             <div class="form-group">
               <label for="config-whatsapp-grupo">Link do Grupo do WhatsApp</label>
               <input type="url" id="config-whatsapp-grupo" placeholder="https://chat.whatsapp.com/KT4gbhyKUUrBqW9fU2ZGpv">
-              <small class="form-hint">Link direto de convite para o grupo dos amigos.</small>
+              <small class="form-hint">Link de convite direto para o grupo.</small>
             </div>
             <div class="form-group">
               <label for="config-site-app">Site para Acesso ao Sistema</label>
               <input type="url" id="config-site-app" placeholder="https://sena-clube.vercel.app">
-              <small class="form-hint">Link do painel online divulgado nas mensagens.</small>
+              <small class="form-hint">Link do painel online divulgado.</small>
             </div>
           </div>
 

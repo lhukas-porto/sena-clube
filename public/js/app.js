@@ -1234,9 +1234,11 @@ function setupEventListeners() {
 
     if (elHint) {
       if (isDinamico) {
-        elHint.innerHTML = `⚡ <strong>Modo Dinâmico:</strong> 10% do líquido arrecadado de cotas pagas (Atualmente: <strong>R$ ${quadraCalculada.toFixed(2).replace('.', ',')}</strong> com ${apostasPagas} cota(s) paga(s)).`;
+        elHint.textContent = `10% dinâmico do líquido de cotas pagas.`;
+        elHint.title = `Modo Dinâmico: 10% do líquido arrecadado (Atualmente R$ ${quadraCalculada.toFixed(2).replace('.', ',')} com ${apostasPagas} cota(s) paga(s)).`;
       } else {
-        elHint.textContent = 'Modo Manual: Prêmio fixo definido manualmente para a Quadra.';
+        elHint.textContent = 'Modo Manual: Prêmio fixo definido para a Quadra.';
+        elHint.title = 'Modo Manual: Valor fixo estipulado.';
       }
     }
 
@@ -1271,13 +1273,15 @@ function setupEventListeners() {
       elQuadraInput.value = valor;
       elQuadraInput.readOnly = true;
       if (elHint) {
-        elHint.innerHTML = `⚡ <strong>Modo Dinâmico:</strong> 10% do líquido arrecadado de cotas pagas (Atualmente: <strong>R$ ${valor.toFixed(2).replace('.', ',')}</strong> com ${apostasPagas} cota(s) paga(s)).`;
+        elHint.textContent = `10% dinâmico do líquido de cotas pagas.`;
+        elHint.title = `Modo Dinâmico: 10% do líquido arrecadado (Atualmente R$ ${valor.toFixed(2).replace('.', ',')} com ${apostasPagas} cota(s) paga(s)).`;
       }
     } else {
       elQuadraInput.readOnly = false;
       elQuadraInput.focus();
       if (elHint) {
-        elHint.textContent = 'Modo Manual: Digite o valor fixo estipulado para a Quadra.';
+        elHint.textContent = 'Modo Manual: Prêmio fixo definido para a Quadra.';
+        elHint.title = 'Modo Manual: Valor fixo estipulado.';
       }
     }
   });
@@ -1300,7 +1304,8 @@ function setupEventListeners() {
     elQuadraInput.readOnly = true;
 
     if (elHint) {
-      elHint.innerHTML = `⚡ <strong>Modo Dinâmico:</strong> 10% do líquido arrecadado de cotas pagas (Atualmente: <strong>R$ ${valor.toFixed(2).replace('.', ',')}</strong> com ${apostasPagas} cota(s) paga(s)).`;
+      elHint.textContent = `10% dinâmico do líquido de cotas pagas.`;
+      elHint.title = `Modo Dinâmico: 10% do líquido arrecadado (Atualmente R$ ${valor.toFixed(2).replace('.', ',')} com ${apostasPagas} cota(s) paga(s)).`;
     }
     mostrarNotificacaoToast(`⚡ Prêmio da Quadra calculado (10% do líquido de ${apostasPagas} cota(s) paga(s)): R$ ${valor.toFixed(2).replace('.', ',')}`);
   });

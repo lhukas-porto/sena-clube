@@ -1176,15 +1176,25 @@ form {
   gap: 5px;
 }
 
-.form-group label {
+.form-group > label,
+.form-group > .form-label-row {
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--text-secondary);
+  white-space: nowrap;
+  box-sizing: border-box;
+  margin: 0;
 }
 
 .form-group input, .form-group select, textarea {
   width: 100%;
-  padding: 9px 12px;
+  height: 40px;
+  padding: 8px 12px;
+  box-sizing: border-box;
   background: var(--bg-surface-elevated);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
@@ -1222,12 +1232,50 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
 .form-hint {
   font-size: 0.72rem;
   color: var(--text-muted);
+  line-height: 18px;
+  height: 18px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin: 0;
 }
 
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: 14px;
+  align-items: start;
+}
+
+.form-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.form-label-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.checkbox-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+  font-weight: 500;
+}
+
+.checkbox-inline input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  cursor: pointer;
 }
 
 .dezenas-inputs-row {
@@ -1508,7 +1556,7 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
 }
 
 #modal-config .modal-card {
-  max-width: 600px;
+  max-width: 650px;
 }
 
 .danger-item {
