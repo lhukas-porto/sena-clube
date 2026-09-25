@@ -1443,6 +1443,19 @@ function setupEventListeners() {
       alert('🔒 As apostas desta edição estão fechadas! Não é permitido importar apostas.');
       return;
     }
+    const textEl = document.getElementById('whatsapp-raw-text');
+    if (textEl) textEl.value = '';
+    const pagoEl = document.getElementById('whatsapp-default-pago');
+    if (pagoEl) pagoEl.checked = false;
+    const prevCont = document.getElementById('whatsapp-preview-container');
+    if (prevCont) prevCont.classList.add('hidden');
+    const btnImp = document.getElementById('btn-import-whatsapp');
+    if (btnImp) {
+      btnImp.disabled = true;
+      btnImp.textContent = 'Confirmar e Salvar Apostas';
+    }
+    comparacaoAtual = null;
+    apostasDetectadas = [];
     abrirModal('modal-whatsapp');
   });
 
@@ -1854,9 +1867,13 @@ function setupEventListeners() {
     comparacaoAtual.alteradas.forEach(a => {
       const item = document.createElement('div');
       item.className = 'preview-item';
+      const statusLabel = defaultPago
+        ? '<span class="comp-badge alteradas" style="font-size: 0.68rem;">🔄 Alterada (Atualizar para PAGO)</span>'
+        : '<span class="comp-badge alteradas" style="font-size: 0.68rem;">🔄 Dezenas Alteradas</span>';
+
       item.innerHTML = `
         <div class="preview-item-left">
-          <span class="comp-badge alteradas" style="font-size: 0.68rem;">🔄 Dezenas Alteradas</span>
+          ${statusLabel}
           <strong>${escapeHTML(a.nome)}</strong>
         </div>
         <div class="dezenas-preview">
@@ -1870,9 +1887,13 @@ function setupEventListeners() {
     comparacaoAtual.novas.forEach(a => {
       const item = document.createElement('div');
       item.className = 'preview-item';
+      const statusLabel = defaultPago
+        ? '<span class="comp-badge adicionadas" style="font-size: 0.68rem;">🆕 Nova Aposta (PAGA)</span>'
+        : '<span class="comp-badge adicionadas" style="font-size: 0.68rem;">🆕 Nova Aposta (Aguardando Pagamento)</span>';
+
       item.innerHTML = `
         <div class="preview-item-left">
-          <span class="comp-badge adicionadas" style="font-size: 0.68rem;">🆕 Nova Aposta</span>
+          ${statusLabel}
           <strong>${escapeHTML(a.nome)}</strong>
         </div>
         <div class="dezenas-preview">
@@ -1890,12 +1911,25 @@ function setupEventListeners() {
       if (defaultPago) {
         btnImport.innerHTML = `✅ Confirmar Pagamento (${comparacaoAtual.totalMantidas} mantida(s))`;
       } else {
-        btnImport.innerHTML = '✅ Confirmar (Jogos já mantidos)';
+        btnImport.innerHTML = '✅ Confirmar (Manter sem alterar pagamentos)';
       }
     } else {
-      btnImport.innerHTML = 'Confirmar e Atualizar Apostas';
+      btnImport.innerHTML = defaultPago
+        ? 'Confirmar e Salvar Apostas (Pagas)'
+        : 'Confirmar e Salvar Apostas (Aguardando Pagamento)';
     }
   });
+
+  // Atualiza dinamicamente a pré-visualização se o usuário alternar o checkbox de Pagas
+  const chkDefaultPago = document.getElementById('whatsapp-default-pago');
+  if (chkDefaultPago) {
+    chkDefaultPago.addEventListener('change', () => {
+      const prevCont = document.getElementById('whatsapp-preview-container');
+      if (comparacaoAtual && prevCont && !prevCont.classList.contains('hidden')) {
+        document.getElementById('btn-preview-whatsapp').click();
+      }
+    });
+  }
 
   // Ação ao Confirmar e Salvar Apostas do WhatsApp
   document.getElementById('btn-import-whatsapp').addEventListener('click', () => {
@@ -1920,10 +1954,10 @@ function setupEventListeners() {
     comparacaoAtual.mantidas.forEach(m => {
       const apostaExistente = ciclo.apostas.find(a => a.id === m.apostaExistenteId);
       if (apostaExistente) {
-        apostaExistente.confirmada = true;
         apostaExistente.origem = 'mantida';
         if (defaultPago) {
           apostaExistente.pago = true;
+          apostaExistente.confirmada = true;
         }
         mantidasAtualizadas++;
       }
@@ -1935,10 +1969,10 @@ function setupEventListeners() {
       if (apostaExistente) {
         apostaExistente.dezenas = [...alt.dezenas];
         apostaExistente.observacao = 'Dezenas alteradas via WhatsApp';
-        apostaExistente.confirmada = true;
         apostaExistente.origem = 'alterada';
         if (defaultPago) {
           apostaExistente.pago = true;
+          apostaExistente.confirmada = true;
         }
         alteradasAtualizadas++;
       }
@@ -1951,7 +1985,7 @@ function setupEventListeners() {
         nome: nova.nome,
         dezenas: [...nova.dezenas],
         pago: !!defaultPago,
-        confirmada: true,
+        confirmada: !!defaultPago,
         origem: 'nova',
         observacao: 'Adicionada via WhatsApp',
         criadoEm: new Date().toISOString()
@@ -1971,7 +2005,7 @@ function setupEventListeners() {
       detalhesMsg += `• ${alteradasAtualizadas} aposta(s) existente(s) tiveram seus números alterados${defaultPago ? ' e marcada(s) como PAGA(S)' : ''}.\n`;
     }
     if (novasAdicionadas > 0) {
-      detalhesMsg += `• ${novasAdicionadas} nova(s) aposta(s) adicionada(s) ao bolão.\n`;
+      detalhesMsg += `• ${novasAdicionadas} nova(s) aposta(s) adicionada(s) ao bolão${defaultPago ? ' e marcada(s) como PAGA(S)' : ' (Aguardando pagamento)'}.\n`;
     }
 
     alert(`🎉 Processamento concluído com sucesso!\n\n${detalhesMsg}`);

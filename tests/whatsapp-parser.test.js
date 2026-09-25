@@ -50,3 +50,13 @@ Carlos Eduardo: 03 07 19 33 42 58
   assert.equal(apostas[0].nome, 'Carlos Eduardo');
   assert.deepEqual([...apostas[0].dezenas], ['03', '07', '19', '33', '42', '58']);
 });
+
+test('WhatsAppParser - Respeita a flag defaultPago (false por padrão e true quando marcado)', () => {
+  const raw = `Marina Souza: 10 20 30 40 50 60`;
+  const apostasSemPago = WhatsAppParser.parse(raw, false);
+  assert.equal(apostasSemPago[0].pago, false);
+
+  const apostasComPago = WhatsAppParser.parse(raw, true);
+  assert.equal(apostasComPago[0].pago, true);
+});
+
