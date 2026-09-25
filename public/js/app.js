@@ -1159,11 +1159,38 @@ function setupEventListeners() {
 
   // Busca e Filtros
   const inputSearch = document.getElementById('input-search');
-  inputSearch.addEventListener('input', (e) => {
-    state.buscaTexto = e.target.value;
-    state.paginaAtual = 1;
-    renderApp();
-  });
+  const btnClearSearch = document.getElementById('btn-clear-search');
+
+  function atualizarVisibilidadeBotaoLimparBusca() {
+    if (!btnClearSearch) return;
+    if (inputSearch && inputSearch.value.trim().length > 0) {
+      btnClearSearch.classList.remove('hidden');
+    } else {
+      btnClearSearch.classList.add('hidden');
+    }
+  }
+
+  if (inputSearch) {
+    inputSearch.addEventListener('input', (e) => {
+      state.buscaTexto = e.target.value;
+      state.paginaAtual = 1;
+      atualizarVisibilidadeBotaoLimparBusca();
+      renderApp();
+    });
+  }
+
+  if (btnClearSearch) {
+    btnClearSearch.addEventListener('click', () => {
+      if (inputSearch) {
+        inputSearch.value = '';
+        inputSearch.focus();
+      }
+      state.buscaTexto = '';
+      state.paginaAtual = 1;
+      atualizarVisibilidadeBotaoLimparBusca();
+      renderApp();
+    });
+  }
 
   document.querySelectorAll('.filter-chip').forEach(chip => {
     chip.addEventListener('click', () => {
