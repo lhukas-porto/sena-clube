@@ -159,8 +159,22 @@ async function salvarEstado() {
 
     // Se houve conflito de concorrência com outro dispositivo
     if (res.status === 409) {
+      if (resData.serverVersion && resData.serverVersion >= state.version) {
+        state.version = resData.serverVersion;
+        const retryRes = await fetch('/api/bolao', {
+          method: 'POST',
+          headers: { ...headers, 'X-Force-Save': 'true' },
+          body: JSON.stringify({ ...payload, version: state.version, forceSave: true })
+        });
+        if (retryRes.ok) {
+          const retryData = await retryRes.json().catch(() => ({}));
+          if (typeof retryData.version === 'number') state.version = retryData.version;
+          mostrarIndicadorSalvamento(true);
+          return true;
+        }
+      }
       mostrarIndicadorSalvamento(false);
-      mostrarNotificacaoToast('⚠️ Conflito de Concorrência: os dados foram atualizados em outro dispositivo. Recarregue a página antes de salvar.');
+      mostrarNotificacaoToast('⚠️ Conflito de Concorrência: recarregue a página para obter a versão mais recente.');
       return false;
     }
 

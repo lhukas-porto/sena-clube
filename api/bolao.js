@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { verifyToken } from './_auth.js';
-import { validateBolaoPayload } from './_validation.js';
+import { validateBolaoPayload, sanitizePayload } from './_validation.js';
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
@@ -14,7 +14,7 @@ export default async function handler(req, res) {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Client-Version');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Client-Version, X-Force-Save');
 
   if (req.method === 'OPTIONS') {
     return res.status(204).end();
@@ -59,7 +59,8 @@ export default async function handler(req, res) {
     }
 
     try {
-      const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+      const rawBody = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+      const body = sanitizePayload(rawBody);
 
       // 2. Validação de Schema e Integridade
       const validation = validateBolaoPayload(body);

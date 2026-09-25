@@ -5,7 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
 import { checkPassword, generateToken, verifyToken } from './api/_auth.js';
-import { validateBolaoPayload } from './api/_validation.js';
+import { validateBolaoPayload, sanitizePayload } from './api/_validation.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -318,7 +318,8 @@ const server = http.createServer(async (req, res) => {
       req.on('data', chunk => { body += chunk; });
       req.on('end', async () => {
         try {
-          const parsed = JSON.parse(body);
+          const rawParsed = JSON.parse(body);
+          const parsed = sanitizePayload(rawParsed);
 
           // 2. Validação de Schema
           const validation = validateBolaoPayload(parsed);
@@ -330,7 +331,24 @@ const server = http.createServer(async (req, res) => {
           // 3. Concorrência e Snapshot Local
           let currentVersion = 0;
           let currentData = null;
-          if (fs.existsSync(DATA_FILE)) {
+
+          if (supabase) {
+            try {
+              const { data: supData } = await supabase
+                .from('bolao_data')
+                .select('estado_json')
+                .eq('id', 'sena_clube_master')
+                .single();
+              if (supData && supData.estado_json) {
+                currentVersion = supData.estado_json.version || 0;
+                currentData = supData.estado_json;
+              }
+            } catch (supErr) {
+              console.warn('[Supabase Concurrency Check] Aviso:', supErr.message);
+            }
+          }
+
+          if (currentVersion === 0 && fs.existsSync(DATA_FILE)) {
             try {
               currentData = JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
               currentVersion = currentData.version || 0;

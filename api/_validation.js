@@ -1,6 +1,25 @@
 /**
- * Validador rigoroso de integridade de dados do Bolão
+ * Sanitiza recursivamente strings para garantir UTF-8 válido (toWellFormed)
+ * Previne erros de "Empty or invalid json" (PGRST102) no PostgreSQL/Supabase
  */
+export function sanitizePayload(obj) {
+  if (typeof obj === 'string') {
+    return typeof obj.toWellFormed === 'function'
+      ? obj.toWellFormed()
+      : obj.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '');
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(sanitizePayload);
+  }
+  if (obj && typeof obj === 'object') {
+    const res = {};
+    for (const [k, v] of Object.entries(obj)) {
+      res[k] = sanitizePayload(v);
+    }
+    return res;
+  }
+  return obj;
+}
 
 export function validateBolaoPayload(body) {
   if (!body || typeof body !== 'object') {

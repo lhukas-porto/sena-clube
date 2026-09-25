@@ -1,39 +1,39 @@
 {
-  "nomeBolao": "Bolão dos amigos",
-  "taxaOrganizadorGlobal": 0.2,
-  "cicloVisualizadoId": 1,
   "ciclos": [
     {
       "id": 1,
       "nome": "Edição 1",
       "status": "ativo",
-      "concursoInicial": 3064,
-      "concursoFinal": null,
-      "valorCota": 30,
-      "taxaOrganizador": 0.2,
-      "premioQuadra": 0,
-      "concursos": [],
       "apostas": [],
-      "apostasDescartadas": [],
-      "faseApostas": "aberta",
-      "alertasExibidos": {
-        "quadraCicloId": null,
-        "senaCicloId": null
-      },
-      "ganhadorSenaNome": null,
-      "ganhadorQuadraNome": null,
       "criadoEm": "2026-09-25T16:32:49.959Z",
-      "finalizadoEm": null
+      "concursos": [],
+      "valorCota": 30,
+      "faseApostas": "aberta",
+      "finalizadoEm": null,
+      "premioQuadra": 0,
+      "concursoFinal": null,
+      "alertasExibidos": {
+        "senaCicloId": null,
+        "quadraCicloId": null
+      },
+      "concursoInicial": 3064,
+      "taxaOrganizador": 0.2,
+      "ganhadorSenaNome": null,
+      "apostasDescartadas": [],
+      "ganhadorQuadraNome": null
     }
   ],
+  "savedAt": "2026-09-25T20:44:29.102Z",
+  "version": 17,
   "chavePix": "828.851.921-00",
-  "celularOrganizador": "(61) 99627-2630",
-  "linkGrupoWhatsApp": "https://chat.whatsapp.com/KT4gbhyKUUrBqW9fU2ZGpv",
+  "nomeBolao": "Bolão dos amigos",
   "urlSiteAcesso": "https://sena-clube.vercel.app",
+  "linkGrupoWhatsApp": "https://chat.whatsapp.com/KT4gbhyKUUrBqW9fU2ZGpv",
+  "celularOrganizador": "(61) 99627-2630",
+  "cicloVisualizadoId": 1,
+  "taxaOrganizadorGlobal": 0.2,
   "textosWhatsAppCustomizados": {
-    "abertura-padrao": "🍀 *ATENÇÃO APOSTADOR — INSCRIÇÕES ABERTAS!* 🍀\n🏆 *BOLÃO DOS AMIGOS — EDIÇÃO 1*\n\n━━━━━━━━━━━━━━━━━━━━━\n\nFala, apostador!\n\n Está oficialmente aberto o período de apostas e renovações para a nossa próxima edição do bolão dos amigos\n\n📌 *Concurso Inicial:* 3064\n\n*Concurso Inicial:* 3064\n\n🗓️ *Primeiro Sorteio:* Quarta-feira (30/09)\n\n*Primeiro Sorteio:* Terça-feira (29/09\n\n⏰ *Prazo Limite:* Segunda-feira (28/09) até as 20h\n\n*Prazo Limite para Apostas:* Segunda-feira (28/09) até as 20h\n\n\udcb0 *Valor por Jogo/Cota:* R$ 30,00\n\n━━━━━━━━━━━━━━━━━━━━━\n\n📝 *COMO PARTICIPAR:*\n\n*Valor por Jogo/Cota:* R$ 30,00 📝 *COMO PARTICIPAR\n\n🔑 *Chave Pix:* 82885192100\n\n*Chave Pix:* 82885192100️⃣ Realize o Pix da sua cota e envie o comprovante.\n\n3️⃣ Após o prazo, o sistema travará as apostas e nenhum jogo poderá ser alterado!\n\n━━━━━━━━━━━━━━━━━━━━━\n\nBoa sorte a todos, vamos buscar essa Sena juntos! 💰\ud83d\n\n\ude80",
+    "abertura-padrao": "🍀 *ATENÇÃO APOSTADOR — INSCRIÇÕES ABERTAS!* 🍀\n🏆 *BOLÃO DOS AMIGOS — EDIÇÃO 1*\n\n━━━━━━━━━━━━━━━━━━━━━\n\nFala, apostador!\n\n Está oficialmente aberto o período de apostas e renovações para a nossa próxima edição do bolão dos amigos\n\n📌 *Concurso Inicial:* 3064\n\n*Concurso Inicial:* 3064\n\n🗓️ *Primeiro Sorteio:* Quarta-feira (30/09)\n\n*Primeiro Sorteio:* Terça-feira (29/09\n\n⏰ *Prazo Limite:* Segunda-feira (28/09) até as 20h\n\n*Prazo Limite para Apostas:* Segunda-feira (28/09) até as 20h\n\n� *Valor por Jogo/Cota:* R$ 30,00\n\n━━━━━━━━━━━━━━━━━━━━━\n\n📝 *COMO PARTICIPAR:*\n\n*Valor por Jogo/Cota:* R$ 30,00 📝 *COMO PARTICIPAR\n\n🔑 *Chave Pix:* 82885192100\n\n*Chave Pix:* 82885192100️⃣ Realize o Pix da sua cota e envie o comprovante.\n\n3️⃣ Após o prazo, o sistema travará as apostas e nenhum jogo poderá ser alterado!\n\n━━━━━━━━━━━━━━━━━━━━━\n\nBoa sorte a todos, vamos buscar essa Sena juntos! 💰�\n\n�",
     "convite-completo": "🍀 *VOCÊ FOI CONVIDADO PARA O NOSSO BOLÃO ENTRE AMIGOS!* 🏆💰\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ E aí, tudo bem? Quero te fazer um convite especial para participar do nosso bolão entre amigos: o *Bolão dos amigos*! Se você nunca participou, fica tranquilo que a dinâmica é simples, muito divertida e com chances reais de vitória! Veja como funciona: 🎯 *COMO FUNCIONA O JOGO:*\n1️⃣ *Você escolhe 6 dezenas* da sua sorte (de 01 a 60).\n2️⃣ *Sua aposta vale por uma EDIÇÃO INTEIRA* de sorteios — ou seja, você não joga para apenas um dia, seu jogo continua ativo e acumulando acertos a cada sorteio da Mega-Sena da Caixa até termos um vencedor!\n3️⃣ *Valor da cota:* Apenas R$ 30,00 por edição! (Você pode ter mais de uma cota se quiser). 🏆 *AS FORMAS DE GANHAR:*\n💰 *Prêmio Máximo da Sena:* Quem cravar os 6 acertos ao longo da edição leva a bolada principal do bolão!\n⚡ *Prêmio Bônus da Quadra:* Logo no 1º sorteio da edição, se alguém acertar a quadra (4 números), já fatura na hora um prêmio bônus de incentivo! 📱 *TRANSPARÊNCIA TOTAL EM TEMPO REAL:*\nNosso bolão conta com um painel online exclusivo! Você acompanha o ranking de acertos, a apuração automática direto da Caixa e o placar em tempo real:\n👉 https://sena-clube.vercel.app 🔒 *REGRA DE OURO DA CONFIANÇA:*\nAssim que o prazo de inscrições encerra, o sistema trava todas as apostas de forma permanente. Ninguém altera e ninguém inclui jogos de última hora — 100% de transparência e segurança para todos! ⚠️ *AVISO IMPORTANTE (TRANSPARÊNCIA TOTAL):*\nEste é um *bolão particular e recreativo entre amigos*. Ele *NÃO é uma aposta oficial registrada na Caixa Econômica Federal*. Utilizamos exclusivamente as dezenas dos sorteios oficiais da Mega-Sena como base pública e imparcial para nossa apuração interna e premiações do grupo. 👥 *ENTRE NO NOSSO GRUPO DO WHATSAPP:*\nAcompanhe todos os avisos e sorteios direto no grupo:\n👉 https://chat.whatsapp.com/KT4gbhyKUUrBqW9fU2ZGpv ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🚀 *QUER GARANTIR SUA VAGA NA PRÓXIMA EDIÇÃO?* Basta enviar suas 6 dezenas e o comprovante no meu WhatsApp:\n📲 *(61) 99627-2630*\n👉 Ou clique direto para falar comigo: https://wa.me/5561996272630 Bora torcer juntos e buscar essa bolada! Me dá um alô aqui se for entrar! 🏃‍♂️💨🍀"
-  },
-  "version": 16,
-  "savedAt": "2026-09-25T16:34:33.003Z"
+  }
 }
