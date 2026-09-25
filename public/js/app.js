@@ -83,6 +83,22 @@ function getCicloAnterior() {
   return null;
 }
 
+function isApostasFechadas(ciclo) {
+  if (typeof BolaoEngine !== 'undefined' && BolaoEngine.isApostasFechadas) {
+    return BolaoEngine.isApostasFechadas(ciclo);
+  }
+  if (!ciclo) return false;
+  if (ciclo.status === 'finalizado') return true;
+  if (ciclo.faseApostas === 'fechada') return true;
+  if (ciclo.dataLimiteApostas) {
+    const limite = new Date(ciclo.dataLimiteApostas);
+    if (!isNaN(limite.getTime()) && new Date() >= limite) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // ==========================================================================
 // Inicialização
 // ==========================================================================
@@ -364,7 +380,7 @@ function renderBtnFinalizarApostas(ciclo) {
   const btnNova = document.getElementById('btn-modal-nova-aposta');
   const btnWhats = document.getElementById('btn-modal-whatsapp');
 
-  const isFechado = ciclo.faseApostas === 'fechada' || ciclo.status === 'finalizado';
+  const isFechado = isApostasFechadas(ciclo);
 
   // Bloqueio rigoroso de acionamento de novas apostas no toolbar
   if (btnNova) {
@@ -387,7 +403,7 @@ function renderBtnFinalizarApostas(ciclo) {
     return;
   }
   btn.style.display = 'inline-flex';
-  if (ciclo.faseApostas === 'fechada') {
+  if (isFechado) {
     btn.className = 'btn btn-secondary';
     btn.innerHTML = '<span class="btn-icon">🔒</span> Apostas Fechadas (Travado)';
     btn.title = 'Inscrições encerradas. O bolão está travado contra alterações.';
@@ -610,8 +626,9 @@ function renderHeader(ciclo, financeiro, concursosApuracao) {
 
   if (ciclo.concursos.length === 0) {
     cicloInfo.textContent = `${nomeExibicao} — Inicial: ${ciclo.concursoInicial}`;
-    concursosBadge.textContent = '0 sorteios na edição';
-    concursosBadge.style.color = '';
+    const fechado = isApostasFechadas(ciclo);
+    concursosBadge.textContent = fechado ? 'Aguardando 1º sorteio (Apostas encerradas)' : 'Inscrições abertas (Aguardando 1º sorteio)';
+    concursosBadge.style.color = fechado ? '' : 'var(--emerald-primary)';
   } else if (state.filtroConcursoAteIndex !== null && state.filtroConcursoAteIndex < ciclo.concursos.length) {
     const conc = ciclo.concursos[state.filtroConcursoAteIndex];
     cicloInfo.textContent = `${nomeExibicao} (Até Conc. ${conc.numero})`;
@@ -634,27 +651,61 @@ function renderKPIs(apuracao, financeiro, ciclo) {
   // 1. Quadro de Prêmio Líquido (com detalhamento da Quadra e da Sena)
   const elPremioLiquido = document.getElementById('kpi-premio-liquido');
   const elPremioQuadraInfo = document.getElementById('kpi-premio-quadra-info');
+  const elLabelPremio = document.getElementById('kpi-label-premio-liquido');
 
-  if (financeiro.valorPagoQuadra > 0) {
-    // Quadra foi premiada no 1º sorteio: deduz do prêmio da Sena
-    elPremioLiquido.textContent = formatarMoeda(financeiro.premioSenaLiquido);
-    elPremioQuadraInfo.innerHTML = `🎯 Quadra (1º Sorteio): <strong>${formatarMoeda(financeiro.valorPagoQuadra)}</strong> (Deduzido)`;
-    elPremioQuadraInfo.style.color = 'var(--gold-primary)';
-  } else if (financeiro.premioQuadraConfig > 0) {
-    // Quadra configurada / calculada dinamicamente
-    elPremioLiquido.textContent = formatarMoeda(financeiro.premioSenaLiquido);
-    const labelQuadra = financeiro.premioQuadraDinamico ? '🎯 Quadra Dinâmica (10% Líquido):' : '🎯 Quadra Estipulada:';
-    elPremioQuadraInfo.innerHTML = `${labelQuadra} <strong>${formatarMoeda(financeiro.premioQuadraConfig)}</strong> (1º Sorteio)`;
-    elPremioQuadraInfo.style.color = 'var(--text-secondary)';
-  } else {
-    // Sem quadra ou 0 cotas pagas
-    elPremioLiquido.textContent = formatarMoeda(financeiro.totalLiquidoGeralArrecadado);
-    if (financeiro.premioQuadraDinamico) {
-      elPremioQuadraInfo.textContent = '🎯 Quadra Dinâmica: R$ 0,00 (Aguardando cotas pagas)';
-    } else {
-      elPremioQuadraInfo.textContent = '🎯 Quadra: Não configurada';
+  const isFechado = isApostasFechadas(ciclo);
+
+  if (!isFechado) {
+    // FASE ABERTA: Mostra o prêmio líquido estimado baseado no total de apostas inscritas
+    const valorEstimado = financeiro.premioSenaPrevisto > 0
+      ? financeiro.premioSenaPrevisto
+      : financeiro.totalLiquidoGeralPrevisto;
+
+    if (elLabelPremio) {
+      elLabelPremio.textContent = 'Prêmio Líquido (Estimado)';
     }
-    elPremioQuadraInfo.style.color = 'var(--text-muted)';
+    elPremioLiquido.textContent = formatarMoeda(valorEstimado);
+    elPremioLiquido.title = `Estimativa com base em ${financeiro.totalApostas} aposta(s) inscrita(s)`;
+
+    if (financeiro.premioQuadraDinamico) {
+      elPremioQuadraInfo.innerHTML = `🎯 Quadra (10% Estimada): <strong>${formatarMoeda(financeiro.premioQuadraPrevisto)}</strong> (1º Sorteio)`;
+    } else if (financeiro.premioQuadraConfig > 0) {
+      elPremioQuadraInfo.innerHTML = `🎯 Quadra Estipulada: <strong>${formatarMoeda(financeiro.premioQuadraConfig)}</strong> (1º Sorteio)`;
+    } else {
+      elPremioQuadraInfo.textContent = `🎯 Estimativa sobre ${financeiro.totalApostas} ${financeiro.totalApostas === 1 ? 'aposta' : 'apostas'}`;
+    }
+    elPremioQuadraInfo.style.color = 'var(--text-secondary)';
+
+    // Se o organizador estiver logado como admin, exibe quanto já foi confirmado/pago
+    if (state.isAdmin) {
+      elPremioQuadraInfo.innerHTML += `<br><span class="admin-only" style="display: inline-block; font-size: 0.72rem; color: var(--text-muted); margin-top: 3px;">Confirmado: <strong>${formatarMoeda(financeiro.premioSenaLiquido)}</strong> (${financeiro.pagas} pagas)</span>`;
+    }
+  } else {
+    // FASE FECHADA: Mostra o valor oficial consolidado estritamente das apostas pagas
+    if (elLabelPremio) {
+      elLabelPremio.textContent = 'Prêmio Líquido';
+    }
+    elPremioLiquido.textContent = formatarMoeda(financeiro.premioSenaLiquido);
+    elPremioLiquido.title = `Valor oficial apurado de ${financeiro.pagas} aposta(s) confirmada(s)`;
+
+    if (financeiro.valorPagoQuadra > 0) {
+      // Quadra foi premiada no 1º sorteio: deduz do prêmio da Sena
+      elPremioQuadraInfo.innerHTML = `🎯 Quadra (1º Sorteio): <strong>${formatarMoeda(financeiro.valorPagoQuadra)}</strong> (Deduzido)`;
+      elPremioQuadraInfo.style.color = 'var(--gold-primary)';
+    } else if (financeiro.premioQuadraConfig > 0) {
+      // Quadra configurada / calculada dinamicamente
+      const labelQuadra = financeiro.premioQuadraDinamico ? '🎯 Quadra Dinâmica (10% Líquido):' : '🎯 Quadra Estipulada:';
+      elPremioQuadraInfo.innerHTML = `${labelQuadra} <strong>${formatarMoeda(financeiro.premioQuadraConfig)}</strong> (1º Sorteio)`;
+      elPremioQuadraInfo.style.color = 'var(--text-secondary)';
+    } else {
+      // Sem quadra ou 0 cotas pagas
+      if (financeiro.premioQuadraDinamico) {
+        elPremioQuadraInfo.textContent = '🎯 Quadra Dinâmica: R$ 0,00';
+      } else {
+        elPremioQuadraInfo.textContent = '🎯 100% destinado para a Sena';
+      }
+      elPremioQuadraInfo.style.color = 'var(--text-muted)';
+    }
   }
 
   // 2. Taxa do Organizador (20%)
@@ -899,7 +950,7 @@ function renderTabelaApostas(ciclo, apuracao) {
     else if (aposta.totalAcertos >= 4) badgeClass += ' is-high';
     else if (aposta.totalAcertos > 0) badgeClass += ' has-hits';
 
-    const isBloqueado = ciclo.faseApostas === 'fechada' || isFinalizado;
+    const isBloqueado = isApostasFechadas(ciclo);
     const isConfirmada = !!(aposta.confirmada || aposta.pago);
     const pagoHtml = isConfirmada
       ? `<button class="payment-toggle pago" onclick="togglePagamentoAposta('${aposta.id}')" ${isBloqueado ? 'disabled' : ''} title="${isBloqueado ? 'Apostas fechadas (bloqueado contra alterações)' : 'Aposta confirmada'}">✅ Confirmada</button>`
@@ -1033,7 +1084,7 @@ function exibirModalSena(ganhadores) {
 // ==========================================================================
 window.togglePagamentoAposta = function(id) {
   const ciclo = getCicloVisualizado();
-  if (ciclo.faseApostas === 'fechada' || ciclo.status === 'finalizado') {
+  if (isApostasFechadas(ciclo)) {
     alert('🔒 Ação bloqueada: As apostas desta edição já estão fechadas! Conforme a regra de transparência, nem mesmo o administrador pode alterar o status de pagamento ou confirmação.');
     return;
   }
@@ -1048,7 +1099,7 @@ window.togglePagamentoAposta = function(id) {
 
 window.excluirAposta = function(id) {
   const ciclo = getCicloVisualizado();
-  if (ciclo.faseApostas === 'fechada' || ciclo.status === 'finalizado') {
+  if (isApostasFechadas(ciclo)) {
     alert('🔒 Ação bloqueada: As apostas desta edição já estão fechadas! Nenhuma aposta pode ser excluída, nem mesmo pelo administrador.');
     return;
   }
@@ -1063,7 +1114,7 @@ window.excluirAposta = function(id) {
 
 window.editarAposta = function(id) {
   const ciclo = getCicloVisualizado();
-  if (ciclo.faseApostas === 'fechada' || ciclo.status === 'finalizado') {
+  if (isApostasFechadas(ciclo)) {
     alert('🔒 Ação bloqueada: As apostas desta edição já estão fechadas! Nenhuma aposta pode ser editada, nem mesmo pelo administrador.');
     return;
   }
@@ -1286,6 +1337,19 @@ function setupEventListeners() {
     document.getElementById('novo-ciclo-concurso').value = proximoConcurso;
     document.getElementById('novo-ciclo-cota').value = cotaPadrao;
     document.getElementById('novo-ciclo-premio-quadra').value = quadraPadrao;
+
+    const inputPrazoDate = document.getElementById('novo-ciclo-prazo-date');
+    const inputPrazoTime = document.getElementById('novo-ciclo-prazo-time');
+    if (inputPrazoDate) {
+      const d = new Date();
+      d.setDate(d.getDate() + 3);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const dia = String(d.getDate()).padStart(2, '0');
+      inputPrazoDate.value = `${y}-${m}-${dia}`;
+    }
+    if (inputPrazoTime) inputPrazoTime.value = '20:00';
+
     abrirModal('modal-novo-ciclo');
   });
 
@@ -1317,6 +1381,13 @@ function setupEventListeners() {
     const concursoInicial = parseInt(document.getElementById('novo-ciclo-concurso').value, 10);
     const valorCota = parseFloat(document.getElementById('novo-ciclo-cota').value) || 30.0;
     const copiarApostas = document.getElementById('novo-ciclo-copiar-apostas').checked;
+
+    const prazoDate = document.getElementById('novo-ciclo-prazo-date')?.value;
+    const prazoTime = document.getElementById('novo-ciclo-prazo-time')?.value || '20:00';
+    let dataLimiteApostas = null;
+    if (prazoDate) {
+      dataLimiteApostas = `${prazoDate}T${prazoTime}:00`;
+    }
 
     const cicloAtivo = state.ciclos.find(c => c.status === 'ativo');
     if (cicloAtivo) {
@@ -1362,6 +1433,7 @@ function setupEventListeners() {
       apostas: apostasBase,
       apostasDescartadas: [],
       faseApostas: 'aberta',
+      dataLimiteApostas,
       alertasExibidos: { quadraCicloId: null, senaCicloId: null },
       ganhadorSenaNome: null,
       ganhadorQuadraNome: null,
@@ -1445,7 +1517,7 @@ function setupEventListeners() {
   // Botões de Abertura de Modais
   document.getElementById('btn-modal-nova-aposta').addEventListener('click', () => {
     const ciclo = getCicloVisualizado();
-    if (ciclo.faseApostas === 'fechada' || ciclo.status === 'finalizado') {
+    if (isApostasFechadas(ciclo)) {
       alert('🔒 As apostas desta edição estão fechadas! Não é permitido cadastrar novas apostas.');
       return;
     }
@@ -1457,7 +1529,7 @@ function setupEventListeners() {
 
   document.getElementById('btn-modal-whatsapp').addEventListener('click', () => {
     const ciclo = getCicloVisualizado();
-    if (ciclo.faseApostas === 'fechada' || ciclo.status === 'finalizado') {
+    if (isApostasFechadas(ciclo)) {
       alert('🔒 As apostas desta edição estão fechadas! Não é permitido importar apostas.');
       return;
     }
@@ -1630,7 +1702,7 @@ function setupEventListeners() {
   // Botão: Copiar apostas do ciclo anterior
   document.getElementById('btn-copiar-apostas-anterior')?.addEventListener('click', () => {
     const ciclo = getCicloVisualizado();
-    if (ciclo.faseApostas === 'fechada' || ciclo.status === 'finalizado') {
+    if (isApostasFechadas(ciclo)) {
       alert('🔒 As apostas desta edição já estão fechadas e travadas contra alterações.');
       return;
     }
@@ -1729,7 +1801,7 @@ function setupEventListeners() {
   document.getElementById('form-aposta').addEventListener('submit', (e) => {
     e.preventDefault();
     const ciclo = getCicloVisualizado();
-    if (ciclo.faseApostas === 'fechada' || ciclo.status === 'finalizado') {
+    if (isApostasFechadas(ciclo)) {
       alert('🔒 Ação bloqueada: As apostas desta edição já estão fechadas! Conforme as regras, nenhuma aposta pode ser adicionada ou alterada.');
       fecharModal('modal-aposta');
       return;
@@ -1952,7 +2024,7 @@ function setupEventListeners() {
   // Ação ao Confirmar e Salvar Apostas do WhatsApp
   document.getElementById('btn-import-whatsapp').addEventListener('click', () => {
     const ciclo = getCicloVisualizado();
-    if (ciclo.faseApostas === 'fechada' || ciclo.status === 'finalizado') {
+    if (isApostasFechadas(ciclo)) {
       alert('🔒 Ação bloqueada: As apostas deste ciclo já estão fechadas! Conforme as regras, nenhuma aposta pode ser importada ou alterada.');
       fecharModal('modal-whatsapp');
       return;
@@ -2190,7 +2262,7 @@ function setupEventListeners() {
   // Botão: Excluir Todas as Apostas
   document.getElementById('btn-excluir-todas-apostas').addEventListener('click', () => {
     const ciclo = getCicloVisualizado();
-    if (ciclo.faseApostas === 'fechada' || ciclo.status === 'finalizado') {
+    if (isApostasFechadas(ciclo)) {
       alert('🔒 Ação bloqueada: As apostas desta edição já estão fechadas e protegidas contra exclusão.');
       return;
     }
@@ -2557,6 +2629,20 @@ function setupEventListeners() {
       inputPix.value = (typeof MaskUtils !== 'undefined') ? MaskUtils.formatarChavePix(state.chavePix) : state.chavePix;
     }
 
+    const ciclo = getCicloVisualizado();
+    if (ciclo && ciclo.dataLimiteApostas && inputEncerramento && !inputEncerramento.value) {
+      const dt = new Date(ciclo.dataLimiteApostas);
+      if (!isNaN(dt.getTime())) {
+        const y = dt.getFullYear();
+        const m = String(dt.getMonth() + 1).padStart(2, '0');
+        const dia = String(dt.getDate()).padStart(2, '0');
+        const h = String(dt.getHours()).padStart(2, '0');
+        const min = String(dt.getMinutes()).padStart(2, '0');
+        inputEncerramento.value = `${y}-${m}-${dia}`;
+        if (inputHora) inputHora.value = `${h}:${min}`;
+      }
+    }
+
     if (inputInicio && !inputInicio.value) {
       const hoje = new Date();
       const dataSorteio = new Date();
@@ -2578,6 +2664,11 @@ function setupEventListeners() {
       if (inputHora && !inputHora.value) {
         inputHora.value = '20:00';
       }
+    }
+
+    if (ciclo && !ciclo.dataLimiteApostas && inputEncerramento && inputEncerramento.value) {
+      const hora = inputHora ? inputHora.value : '20:00';
+      ciclo.dataLimiteApostas = `${inputEncerramento.value}T${hora}:00`;
     }
   }
 
@@ -2625,6 +2716,16 @@ function setupEventListeners() {
     const inputPix = document.getElementById('msg-param-pix');
     if (inputPix && inputPix.value.trim()) {
       state.chavePix = (typeof MaskUtils !== 'undefined') ? MaskUtils.formatarChavePix(inputPix.value.trim()) : inputPix.value.trim();
+    }
+
+    // Sincroniza o prazo limite de apostas com o ciclo ativo
+    const inputEncerramento = document.getElementById('msg-param-encerramento-date');
+    const inputHora = document.getElementById('msg-param-encerramento-time');
+    if (inputEncerramento && inputEncerramento.value) {
+      const ciclo = getCicloVisualizado();
+      if (ciclo) {
+        ciclo.dataLimiteApostas = `${inputEncerramento.value}T${inputHora ? inputHora.value : '20:00'}:00`;
+      }
     }
 
     // Persistência local no navegador
@@ -2683,6 +2784,13 @@ function setupEventListeners() {
 
         const badgeEncerramento = document.getElementById('badge-preview-encerramento');
         if (badgeEncerramento) badgeEncerramento.textContent = dataEncerramento;
+
+        if (valDateEncerramento) {
+          const ciclo = getCicloVisualizado();
+          if (ciclo) {
+            ciclo.dataLimiteApostas = `${valDateEncerramento}T${valHoraEncerramento}:00`;
+          }
+        }
 
         if ((tabAtual === 'abertura-padrao' || tabAtual === 'lembrete-fechamento') && txtArea) {
           const ciclo = getCicloVisualizado();

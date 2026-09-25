@@ -204,6 +204,27 @@ const BolaoEngine = {
   },
 
   /**
+   * Verifica se o bolão/ciclo está fechado para novas apostas.
+   * Considera fechado se o status for finalizado, a faseApostas for 'fechada'
+   * ou se a dataLimiteApostas já tiver sido atingida/ultrapassada pelo horário atual.
+   * @param {Object} ciclo Objeto do ciclo
+   * @param {Date} agora Data de referência (padrão new Date())
+   * @returns {boolean}
+   */
+  isApostasFechadas(ciclo, agora = new Date()) {
+    if (!ciclo) return false;
+    if (ciclo.status === 'finalizado') return true;
+    if (ciclo.faseApostas === 'fechada') return true;
+    if (ciclo.dataLimiteApostas) {
+      const limite = new Date(ciclo.dataLimiteApostas);
+      if (!isNaN(limite.getTime()) && agora >= limite) {
+        return true;
+      }
+    }
+    return false;
+  },
+
+  /**
    * Calcula o prêmio da Quadra como 10% do valor líquido das apostas fornecidas
    * Líquido = (Total Apostas Pagas * Valor Cota) * (1 - Taxa Organizador)
    */

@@ -110,7 +110,7 @@
       <div class="kpi-card highlight-emerald" id="kpi-card-premio">
         <div class="kpi-icon icon-prize">🏆</div>
         <div class="kpi-data">
-          <span class="kpi-label">Prêmio Líquido</span>
+          <span class="kpi-label" id="kpi-label-premio-liquido">Prêmio Líquido</span>
           <strong class="kpi-value emerald-text" id="kpi-premio-liquido">R$ 0,00</strong>
           <span class="kpi-sub" id="kpi-premio-quadra-info" style="color: var(--gold-primary); font-weight: 600;">🎯 Quadra: R$ 0,00</span>
         </div>
@@ -286,6 +286,17 @@
           <div class="form-group">
             <label for="novo-ciclo-cota">Valor da Cota (R$) *</label>
             <input type="number" id="novo-ciclo-cota" step="0.50" min="0" placeholder="24.00" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="novo-ciclo-prazo-date">Prazo Limite para Apostas (Data)</label>
+            <input type="date" id="novo-ciclo-prazo-date" title="Clique para escolher a data limite" onclick="this.showPicker && this.showPicker()">
+          </div>
+          <div class="form-group">
+            <label for="novo-ciclo-prazo-time">Horário Limite</label>
+            <input type="time" id="novo-ciclo-prazo-time" value="20:00" title="Horário de encerramento" onclick="this.showPicker && this.showPicker()">
           </div>
         </div>
 

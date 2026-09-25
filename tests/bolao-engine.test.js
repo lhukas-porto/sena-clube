@@ -84,3 +84,67 @@ test('BolaoEngine - Comparação entre Edições (Mantidas, Alteradas, Novas)', 
   assert.equal(comp.totalNovas, 1);
   assert.equal(comp.totalNaoRenovadas, 0);
 });
+
+test('BolaoEngine - isApostasFechadas com dataLimiteApostas, faseApostas e status', () => {
+  const agora = new Date('2026-09-25T18:00:00Z');
+
+  // Aberto com prazo futuro
+  const cicloAberto = {
+    status: 'ativo',
+    faseApostas: 'aberta',
+    dataLimiteApostas: '2026-09-28T20:00:00Z'
+  };
+  assert.equal(BolaoEngine.isApostasFechadas(cicloAberto, agora), false);
+
+  // Prazo ultrapassado (data limite anterior ao agora)
+  const cicloPrazoVencido = {
+    status: 'ativo',
+    faseApostas: 'aberta',
+    dataLimiteApostas: '2026-09-24T20:00:00Z'
+  };
+  assert.equal(BolaoEngine.isApostasFechadas(cicloPrazoVencido, agora), true);
+
+  // Fechado manualmente pela administração
+  const cicloFechado = {
+    status: 'ativo',
+    faseApostas: 'fechada',
+    dataLimiteApostas: '2026-09-28T20:00:00Z'
+  };
+  assert.equal(BolaoEngine.isApostasFechadas(cicloFechado, agora), true);
+
+  // Ciclo finalizado
+  const cicloFinalizado = {
+    status: 'finalizado',
+    faseApostas: 'fechada'
+  };
+  assert.equal(BolaoEngine.isApostasFechadas(cicloFinalizado, agora), true);
+});
+
+test('BolaoEngine - Prêmio estimado na fase aberta vs oficial após fechamento', () => {
+  // 10 apostas no total, mas apenas 2 marcadas como pagas
+  const apostas = Array.from({ length: 10 }, (_, i) => ({
+    id: `a_${i}`,
+    nome: `Participante ${i + 1}`,
+    dezenas: ['01', '02', '03', '04', '05', '06'],
+    pago: i < 2 // apenas 2 pagas
+  }));
+
+  // Cota R$ 30, Taxa 20%
+  const fin = BolaoEngine.calcularFinanceiro(apostas, 30.0, 0.20, 0, false, true);
+
+  // Estimativa para a fase aberta (todas as 10 apostas contadas):
+  // Bruto previsto = 10 * 30 = 300
+  // Taxa prevista = 300 * 0.20 = 60
+  // Líquido estimado = 240
+  assert.equal(fin.totalLiquidoGeralPrevisto, 240.0);
+  assert.equal(fin.premioSenaPrevisto, 240.0);
+  assert.equal(fin.premioQuadraPrevisto, 24.0); // 10% estimado
+
+  // Valor oficial das pagas (apenas 2 pagas):
+  // Bruto arrecadado = 2 * 30 = 60
+  // Taxa arrecadada = 60 * 0.20 = 12
+  // Líquido arrecadado = 48
+  assert.equal(fin.totalLiquidoGeralArrecadado, 48.0);
+  assert.equal(fin.premioSenaLiquido, 48.0);
+  assert.equal(fin.premioQuadraConfig, 4.80); // 10% do arrecadado
+});
