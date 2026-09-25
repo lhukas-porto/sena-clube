@@ -214,12 +214,13 @@ function renderApp() {
   
   // Apuração oficial completa de todos os sorteios do ciclo
   const apuracaoCompleta = BolaoEngine.apurar(ciclo.apostas, ciclo.concursos);
-  const taxa = typeof ciclo.taxaOrganizador === 'number' ? ciclo.taxaOrganizador : state.taxaOrganizadorGlobal;
+  const taxa = (ciclo.taxaOrganizador !== undefined ? ciclo.taxaOrganizador : state.taxaOrganizadorGlobal) ?? 0.20;
+  const isDinamico = ciclo.premioQuadraDinamico !== false;
   const premioQuadra = typeof ciclo.premioQuadra === 'number' ? ciclo.premioQuadra : 0.0;
   
   // Apura se houve quadra no 1º sorteio do ciclo
   const quadraPremiada = apuracaoCompleta.ganhadoresQuadraPrimeiroSorteio && apuracaoCompleta.ganhadoresQuadraPrimeiroSorteio.length > 0;
-  const financeiro = BolaoEngine.calcularFinanceiro(ciclo.apostas, ciclo.valorCota, taxa, premioQuadra, quadraPremiada);
+  const financeiro = BolaoEngine.calcularFinanceiro(ciclo.apostas, ciclo.valorCota, taxa, premioQuadra, quadraPremiada, isDinamico);
 
   // ENCERRAMENTO IMEDIATO DO CICLO SE IDENTIFICADO 1 OU MAIS GANHADORES DA SENA (6 ACERTOS)
   if (apuracaoCompleta.temVencedorSena && ciclo.status !== 'finalizado') {
@@ -549,15 +550,20 @@ function renderKPIs(apuracao, financeiro, ciclo) {
     elPremioQuadraInfo.style.color = 'var(--gold-primary)';
     elArrecadadoBrutoSub.textContent = `Total Líquido: ${formatarMoeda(financeiro.totalLiquidoGeralArrecadado)}${textoBruto}`;
   } else if (financeiro.premioQuadraConfig > 0) {
-    // Quadra configurada mas sem acertador no 1º sorteio
+    // Quadra configurada / calculada dinamicamente
     elPremioLiquido.textContent = formatarMoeda(financeiro.premioSenaLiquido);
-    elPremioQuadraInfo.innerHTML = `🎯 Quadra Estipulada: <strong>${formatarMoeda(financeiro.premioQuadraConfig)}</strong> (Sem acertador)`;
-    elPremioQuadraInfo.style.color = 'var(--text-muted)';
+    const labelQuadra = financeiro.premioQuadraDinamico ? '🎯 Quadra Dinâmica (10% Líquido):' : '🎯 Quadra Estipulada:';
+    elPremioQuadraInfo.innerHTML = `${labelQuadra} <strong>${formatarMoeda(financeiro.premioQuadraConfig)}</strong> (1º Sorteio)`;
+    elPremioQuadraInfo.style.color = 'var(--text-secondary)';
     elArrecadadoBrutoSub.textContent = `Total Líquido: ${formatarMoeda(financeiro.totalLiquidoGeralArrecadado)}${textoBruto}`;
   } else {
-    // Sem quadra configurada
+    // Sem quadra ou 0 cotas pagas
     elPremioLiquido.textContent = formatarMoeda(financeiro.totalLiquidoGeralArrecadado);
-    elPremioQuadraInfo.textContent = '🎯 Quadra: Não configurada';
+    if (financeiro.premioQuadraDinamico) {
+      elPremioQuadraInfo.textContent = '🎯 Quadra Dinâmica: R$ 0,00 (Aguardando cotas pagas)';
+    } else {
+      elPremioQuadraInfo.textContent = '🎯 Quadra: Não configurada';
+    }
     elPremioQuadraInfo.style.color = 'var(--text-muted)';
     elArrecadadoBrutoSub.textContent = `Total Líquido: ${formatarMoeda(financeiro.totalLiquidoGeralArrecadado)}${textoBruto}`;
   }
@@ -1031,10 +1037,10 @@ function setupEventListeners() {
     }
 
     const cotaPadrao = ultimoCiclo.valorCota || 30.0;
-    const numApostasEstimadas = (ultimoCiclo.apostas && ultimoCiclo.apostas.length > 0) ? ultimoCiclo.apostas.length : 100;
+    const pagasEstimadas = (ultimoCiclo.apostas || []).filter(a => a.pago).length;
     const taxa = typeof ultimoCiclo.taxaOrganizador === 'number' ? ultimoCiclo.taxaOrganizador : (state.taxaOrganizadorGlobal || 0.20);
-    // Padrão: 10% do valor líquido calculado automaticamente
-    const quadraPadrao = BolaoEngine.calcularPremioQuadraPadrao(numApostasEstimadas, cotaPadrao, taxa);
+    // Dinâmico: 10% do valor líquido das apostas pagas (se 0 pagas, prêmio é 0)
+    const quadraPadrao = BolaoEngine.calcularPremioQuadraPadrao(pagasEstimadas, cotaPadrao, taxa);
 
     document.getElementById('novo-ciclo-nome').value = `Edição ${state.ciclos.length + 1}`;
     document.getElementById('novo-ciclo-concurso').value = proximoConcurso;
@@ -1046,21 +1052,21 @@ function setupEventListeners() {
   // Botão: Recalcular 10% do líquido no modal de novo ciclo
   document.getElementById('btn-recalc-quadra-novo')?.addEventListener('click', () => {
     const ultimoCiclo = state.ciclos[state.ciclos.length - 1] || getCicloVisualizado();
-    const numApostas = (ultimoCiclo.apostas && ultimoCiclo.apostas.length > 0) ? ultimoCiclo.apostas.length : 100;
+    const pagas = (ultimoCiclo.apostas || []).filter(a => a.pago).length;
     const cota = parseFloat(document.getElementById('novo-ciclo-cota').value) || 30.0;
     const taxa = state.taxaOrganizadorGlobal || 0.20;
-    const valor = BolaoEngine.calcularPremioQuadraPadrao(numApostas, cota, taxa);
+    const valor = BolaoEngine.calcularPremioQuadraPadrao(pagas, cota, taxa);
     document.getElementById('novo-ciclo-premio-quadra').value = valor;
-    mostrarNotificacaoToast(`⚡ Prêmio da Quadra atualizado para 10% do líquido: R$ ${valor.toFixed(2).replace('.', ',')}`);
+    mostrarNotificacaoToast(`⚡ Prêmio da Quadra calculado (10% do líquido de ${pagas} cota(s) paga(s)): R$ ${valor.toFixed(2).replace('.', ',')}`);
   });
 
   // Atualização automática ao digitar o valor da cota no novo ciclo
   document.getElementById('novo-ciclo-cota')?.addEventListener('input', (e) => {
     const cota = parseFloat(e.target.value) || 0;
     const ultimoCiclo = state.ciclos[state.ciclos.length - 1] || getCicloVisualizado();
-    const numApostas = (ultimoCiclo.apostas && ultimoCiclo.apostas.length > 0) ? ultimoCiclo.apostas.length : 100;
+    const pagas = (ultimoCiclo.apostas || []).filter(a => a.pago).length;
     const taxa = state.taxaOrganizadorGlobal || 0.20;
-    const valor = BolaoEngine.calcularPremioQuadraPadrao(numApostas, cota, taxa);
+    const valor = BolaoEngine.calcularPremioQuadraPadrao(pagas, cota, taxa);
     document.getElementById('novo-ciclo-premio-quadra').value = valor;
   });
 
@@ -1097,8 +1103,8 @@ function setupEventListeners() {
 
     const taxaOrg = state.taxaOrganizadorGlobal || 0.20;
     let premioQuadra = parseFloat(document.getElementById('novo-ciclo-premio-quadra').value);
-    if (isNaN(premioQuadra) || premioQuadra <= 0) {
-      premioQuadra = BolaoEngine.calcularPremioQuadraPadrao(apostasBase.length || 100, valorCota, taxaOrg);
+    if (isNaN(premioQuadra) || premioQuadra < 0) {
+      premioQuadra = 0.0;
     }
 
     const novoId = Math.max(...state.ciclos.map(c => c.id)) + 1;
@@ -1111,6 +1117,7 @@ function setupEventListeners() {
       valorCota,
       taxaOrganizador: taxaOrg,
       premioQuadra,
+      premioQuadraDinamico: true,
       concursos: [],
       apostas: apostasBase,
       apostasDescartadas: [],
@@ -1130,7 +1137,8 @@ function setupEventListeners() {
     fecharModal('modal-novo-ciclo');
     renderApp();
 
-    alert(`🎉 ${nome} aberta com sucesso com concurso inicial ${concursoInicial}!\nPrêmio da Quadra fixado em R$ ${premioQuadra.toFixed(2).replace('.', ',')} (10% do líquido).`);
+    const infoQuadra = novoCiclo.premioQuadraDinamico ? 'Dinâmico (10% do líquido de cotas pagas)' : `R$ ${premioQuadra.toFixed(2).replace('.', ',')}`;
+    alert(`🎉 ${nome} aberta com sucesso com concurso inicial ${concursoInicial}!\nPrêmio da Quadra: ${infoQuadra}.`);
   });
 
   // Form Quick: Iniciar Novo Ciclo via Banner
@@ -1193,19 +1201,45 @@ function setupEventListeners() {
     const ciclo = getCicloVisualizado();
     const cota = ciclo.valorCota ?? 30.0;
     const taxa = (ciclo.taxaOrganizador !== undefined ? ciclo.taxaOrganizador : state.taxaOrganizadorGlobal) || 0.20;
-    let premioQuadra = ciclo.premioQuadra;
+    
+    // Verifica se a quadra é dinâmica (padrão é dinâmico se premioQuadraDinamico !== false)
+    let isDinamico = ciclo.premioQuadraDinamico !== false;
+    const apostasPagas = (ciclo.apostas || []).filter(a => a.pago).length;
+    const liquidoArrecadado = apostasPagas * cota * (1 - taxa);
+    const quadraCalculada = Math.round(liquidoArrecadado * 0.10 * 100) / 100;
 
-    // Se estiver 0 ou nulo, sugere automaticamente 10% do líquido
-    if (!premioQuadra || premioQuadra <= 0) {
-      const numApostas = (ciclo.apostas && ciclo.apostas.length > 0) ? ciclo.apostas.length : 100;
-      premioQuadra = BolaoEngine.calcularPremioQuadraPadrao(numApostas, cota, taxa);
+    // Se o ciclo possuía o antigo 240 artificial gravado mas as apostas pagas não justificam, força modo dinâmico
+    if (ciclo.premioQuadra === 240 && apostasPagas < 100) {
+      isDinamico = true;
+      ciclo.premioQuadraDinamico = true;
+      ciclo.premioQuadra = quadraCalculada;
     }
+
+    let premioQuadraExibir = isDinamico ? quadraCalculada : (typeof ciclo.premioQuadra === 'number' ? ciclo.premioQuadra : 0.0);
+
+    const elQuadraInput = document.getElementById('config-premio-quadra');
+    const elQuadraDinamica = document.getElementById('config-quadra-dinamica');
+    const elHint = document.getElementById('config-premio-quadra-hint');
 
     document.getElementById('config-nome').value = state.nomeBolao || '';
     document.getElementById('config-concurso-inicial').value = ciclo.concursoInicial ?? 3064;
     document.getElementById('config-valor-cota').value = cota;
     document.getElementById('config-taxa-organizador').value = Math.round(taxa * 100);
-    document.getElementById('config-premio-quadra').value = premioQuadra;
+    elQuadraInput.value = premioQuadraExibir;
+
+    if (elQuadraDinamica) {
+      elQuadraDinamica.checked = isDinamico;
+    }
+    elQuadraInput.readOnly = isDinamico;
+
+    if (elHint) {
+      if (isDinamico) {
+        elHint.innerHTML = `⚡ <strong>Modo Dinâmico:</strong> 10% do líquido arrecadado de cotas pagas (Atualmente: <strong>R$ ${quadraCalculada.toFixed(2).replace('.', ',')}</strong> com ${apostasPagas} cota(s) paga(s)).`;
+      } else {
+        elHint.textContent = 'Modo Manual: Prêmio fixo definido manualmente para a Quadra.';
+      }
+    }
+
     if (document.getElementById('config-pix')) {
       document.getElementById('config-pix').value = state.chavePix || '';
     }
@@ -1221,16 +1255,54 @@ function setupEventListeners() {
     abrirModal('modal-config');
   });
 
+  // Checkbox: Alternar Modo Dinâmico do Prêmio da Quadra
+  document.getElementById('config-quadra-dinamica')?.addEventListener('change', (e) => {
+    const ciclo = getCicloVisualizado();
+    const cota = parseFloat(document.getElementById('config-valor-cota').value) || ciclo.valorCota || 30.0;
+    const taxaInput = parseFloat(document.getElementById('config-taxa-organizador').value);
+    const taxa = (!isNaN(taxaInput) && taxaInput >= 0 && taxaInput <= 100) ? (taxaInput / 100) : 0.20;
+    const apostasPagas = (ciclo.apostas || []).filter(a => a.pago).length;
+    const elQuadraInput = document.getElementById('config-premio-quadra');
+    const elHint = document.getElementById('config-premio-quadra-hint');
+
+    if (e.target.checked) {
+      const liquido = apostasPagas * cota * (1 - taxa);
+      const valor = Math.round(liquido * 0.10 * 100) / 100;
+      elQuadraInput.value = valor;
+      elQuadraInput.readOnly = true;
+      if (elHint) {
+        elHint.innerHTML = `⚡ <strong>Modo Dinâmico:</strong> 10% do líquido arrecadado de cotas pagas (Atualmente: <strong>R$ ${valor.toFixed(2).replace('.', ',')}</strong> com ${apostasPagas} cota(s) paga(s)).`;
+      }
+    } else {
+      elQuadraInput.readOnly = false;
+      elQuadraInput.focus();
+      if (elHint) {
+        elHint.textContent = 'Modo Manual: Digite o valor fixo estipulado para a Quadra.';
+      }
+    }
+  });
+
   // Botão: Recalcular 10% do líquido no modal de configurações
   document.getElementById('btn-recalc-quadra-config')?.addEventListener('click', () => {
     const ciclo = getCicloVisualizado();
     const cota = parseFloat(document.getElementById('config-valor-cota').value) || ciclo.valorCota || 30.0;
     const taxaInput = parseFloat(document.getElementById('config-taxa-organizador').value);
     const taxa = (!isNaN(taxaInput) && taxaInput >= 0 && taxaInput <= 100) ? (taxaInput / 100) : 0.20;
-    const numApostas = (ciclo.apostas && ciclo.apostas.length > 0) ? ciclo.apostas.length : 100;
-    const valor = BolaoEngine.calcularPremioQuadraPadrao(numApostas, cota, taxa);
-    document.getElementById('config-premio-quadra').value = valor;
-    mostrarNotificacaoToast(`⚡ Prêmio da Quadra calculado (10% do líquido): R$ ${valor.toFixed(2).replace('.', ',')}`);
+    const apostasPagas = (ciclo.apostas || []).filter(a => a.pago).length;
+    const valor = BolaoEngine.calcularPremioQuadraPadrao(apostasPagas, cota, taxa);
+    
+    const elQuadraInput = document.getElementById('config-premio-quadra');
+    const elQuadraDinamica = document.getElementById('config-quadra-dinamica');
+    const elHint = document.getElementById('config-premio-quadra-hint');
+
+    elQuadraInput.value = valor;
+    if (elQuadraDinamica) elQuadraDinamica.checked = true;
+    elQuadraInput.readOnly = true;
+
+    if (elHint) {
+      elHint.innerHTML = `⚡ <strong>Modo Dinâmico:</strong> 10% do líquido arrecadado de cotas pagas (Atualmente: <strong>R$ ${valor.toFixed(2).replace('.', ',')}</strong> com ${apostasPagas} cota(s) paga(s)).`;
+    }
+    mostrarNotificacaoToast(`⚡ Prêmio da Quadra calculado (10% do líquido de ${apostasPagas} cota(s) paga(s)): R$ ${valor.toFixed(2).replace('.', ',')}`);
   });
 
   // Botão: Copiar apostas do ciclo anterior
@@ -1655,7 +1727,17 @@ function setupEventListeners() {
       state.taxaOrganizadorGlobal = ciclo.taxaOrganizador;
 
       // Prêmio da Quadra
-      ciclo.premioQuadra = parseFloat(document.getElementById('config-premio-quadra').value) || 0.0;
+      const elQuadraDinamica = document.getElementById('config-quadra-dinamica');
+      const isDinamico = elQuadraDinamica ? elQuadraDinamica.checked : true;
+      ciclo.premioQuadraDinamico = isDinamico;
+
+      if (isDinamico) {
+        const apostasPagas = (ciclo.apostas || []).filter(a => a.pago).length;
+        const liquido = apostasPagas * ciclo.valorCota * (1 - ciclo.taxaOrganizador);
+        ciclo.premioQuadra = Math.round(liquido * 0.10 * 100) / 100;
+      } else {
+        ciclo.premioQuadra = parseFloat(document.getElementById('config-premio-quadra').value) || 0.0;
+      }
 
       // Contatos, PIX e Links
       const pixInput = document.getElementById('config-pix');
@@ -1800,9 +1882,10 @@ function setupEventListeners() {
     const ciclo = getCicloVisualizado();
     const apuracao = BolaoEngine.apurar(ciclo.apostas, ciclo.concursos);
     const taxa = typeof ciclo.taxaOrganizador === 'number' ? ciclo.taxaOrganizador : state.taxaOrganizadorGlobal;
+    const isDinamico = ciclo.premioQuadraDinamico !== false;
     const premioQuadra = typeof ciclo.premioQuadra === 'number' ? ciclo.premioQuadra : 0.0;
     const quadraPremiada = apuracao.ganhadoresQuadraPrimeiroSorteio && apuracao.ganhadoresQuadraPrimeiroSorteio.length > 0;
-    const financeiro = BolaoEngine.calcularFinanceiro(ciclo.apostas, ciclo.valorCota, taxa, premioQuadra, quadraPremiada);
+    const financeiro = BolaoEngine.calcularFinanceiro(ciclo.apostas, ciclo.valorCota, taxa, premioQuadra, quadraPremiada, isDinamico);
 
     const txtArea = document.getElementById('relatorio-whatsapp-text');
     const panelParams = document.getElementById('msg-custom-params');
@@ -1867,7 +1950,8 @@ function setupEventListeners() {
         dataEncerramento,
         valorCota: ciclo.valorCota || 30.0,
         chavePix,
-        premioQuadra: ciclo.premioQuadra || 0.0
+        premioQuadra: ciclo.premioQuadraDinamico !== false ? financeiro.premioQuadraConfig : (ciclo.premioQuadra || 0.0),
+        premioQuadraDinamico: ciclo.premioQuadraDinamico !== false
       });
     } else if (tabAtual === 'lembrete-fechamento') {
       txtArea.value = ExportShare.gerarMensagemLembreteFechamento({
@@ -2143,9 +2227,10 @@ function setupEventListeners() {
     const ciclo = getCicloVisualizado();
     const apuracao = BolaoEngine.apurar(ciclo.apostas, ciclo.concursos);
     const taxa = typeof ciclo.taxaOrganizador === 'number' ? ciclo.taxaOrganizador : state.taxaOrganizadorGlobal;
+    const isDinamico = ciclo.premioQuadraDinamico !== false;
     const premioQuadra = typeof ciclo.premioQuadra === 'number' ? ciclo.premioQuadra : 0.0;
     const quadraPremiada = apuracao.ganhadoresQuadraPrimeiroSorteio && apuracao.ganhadoresQuadraPrimeiroSorteio.length > 0;
-    const financeiro = BolaoEngine.calcularFinanceiro(ciclo.apostas, ciclo.valorCota, taxa, premioQuadra, quadraPremiada);
+    const financeiro = BolaoEngine.calcularFinanceiro(ciclo.apostas, ciclo.valorCota, taxa, premioQuadra, quadraPremiada, isDinamico);
 
     const formatoRadio = document.querySelector('input[name="pdf-formato"]:checked');
     const formato = formatoRadio ? formatoRadio.value : 'compacta';
@@ -2231,9 +2316,10 @@ function renderModalHistoricoCiclos() {
   state.ciclos.forEach(c => {
     const apuracao = BolaoEngine.apurar(c.apostas, c.concursos);
     const taxa = typeof c.taxaOrganizador === 'number' ? c.taxaOrganizador : state.taxaOrganizadorGlobal;
+    const isDinamico = c.premioQuadraDinamico !== false;
     const premioQuadra = typeof c.premioQuadra === 'number' ? c.premioQuadra : 0.0;
     const quadraPremiada = apuracao.ganhadoresQuadraPrimeiroSorteio && apuracao.ganhadoresQuadraPrimeiroSorteio.length > 0;
-    const fin = BolaoEngine.calcularFinanceiro(c.apostas, c.valorCota, taxa, premioQuadra, quadraPremiada);
+    const fin = BolaoEngine.calcularFinanceiro(c.apostas, c.valorCota, taxa, premioQuadra, quadraPremiada, isDinamico);
 
     const primeiroConc = c.concursos.length > 0 ? c.concursos[0].numero : c.concursoInicial;
     const ultimoConc = c.concursos.length > 0 ? c.concursos[c.concursos.length - 1].numero : 'Em aberto';
@@ -2438,7 +2524,8 @@ function iniciarNovoCicloAutomatico(concursoInicial) {
 
   const valorCota = ultimoCiclo ? (ultimoCiclo.valorCota || 30.0) : 30.0;
   const taxa = state.taxaOrganizadorGlobal || 0.20;
-  const premioQuadraPadrao = BolaoEngine.calcularPremioQuadraPadrao(apostasBase.length || 100, valorCota, taxa);
+  const pagasIniciais = apostasBase.filter(a => a.pago).length;
+  const premioQuadraPadrao = BolaoEngine.calcularPremioQuadraPadrao(pagasIniciais, valorCota, taxa);
 
   const novoCiclo = {
     id: novoId,
@@ -2449,6 +2536,7 @@ function iniciarNovoCicloAutomatico(concursoInicial) {
     valorCota,
     taxaOrganizador: taxa,
     premioQuadra: premioQuadraPadrao,
+    premioQuadraDinamico: true,
     concursos: [],
     apostas: apostasBase,
     apostasDescartadas: [],

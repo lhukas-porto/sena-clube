@@ -123,8 +123,9 @@ const BolaoEngine = {
    * @param {number} percentualOrganizador Percentual da taxa do organizador
    * @param {number} premioQuadraConfig Valor estipulado para a quadra no 1º sorteio
    * @param {boolean} quadraPremiada Se houve ganhador da quadra na abertura
+   * @param {boolean} premioQuadraDinamico Se o prêmio é 10% dinâmico do líquido arrecadado de apostas pagas
    */
-  calcularFinanceiro(apostas = [], valorCota = 24.0, percentualOrganizador = 0.20, premioQuadraConfig = 0.0, quadraPremiada = false) {
+  calcularFinanceiro(apostas = [], valorCota = 24.0, percentualOrganizador = 0.20, premioQuadraConfig = 0.0, quadraPremiada = false, premioQuadraDinamico = true) {
     const totalApostas = apostas.length;
     const pagas = apostas.filter(a => a.pago).length;
     const pendentes = totalApostas - pagas;
@@ -134,26 +135,35 @@ const BolaoEngine = {
     const totalPendenteBruto = pendentes * valorCota;
     const totalGeralPrevisto = totalApostas * valorCota;
 
-    // Taxa do Organizador (20%)
+    // Taxa do Organizador (ex: 20%)
     const valorOrganizadorArrecadado = totalArrecadadoBruto * percentualOrganizador;
     const valorOrganizadorPrevisto = totalGeralPrevisto * percentualOrganizador;
 
-    // Total Líquido Geral (Bruto - 20%)
+    // Total Líquido Geral (Bruto - Taxa)
     const totalLiquidoGeralArrecadado = totalArrecadadoBruto - valorOrganizadorArrecadado;
     const totalLiquidoGeralPrevisto = totalGeralPrevisto - valorOrganizadorPrevisto;
 
-    // Regra da Quadra: Se for premiada, retira o valor dela do total líquido
-    const valorPremioQuadraConfig = typeof premioQuadraConfig === 'number' ? premioQuadraConfig : 0.0;
+    // Regra da Quadra: Se for dinâmico, calcula estritamente 10% do líquido das apostas pagas!
+    // Se for manual/fixo, utiliza o valor estipulado pelo organizador.
+    let valorPremioQuadraConfig = 0.0;
+    if (premioQuadraDinamico) {
+      valorPremioQuadraConfig = Math.round(totalLiquidoGeralArrecadado * 0.10 * 100) / 100;
+    } else {
+      valorPremioQuadraConfig = typeof premioQuadraConfig === 'number' ? premioQuadraConfig : 0.0;
+    }
+
     let valorPagoQuadra = 0.0;
-    
     if (quadraPremiada && valorPremioQuadraConfig > 0) {
-      // Deduz o prêmio da quadra do montante líquido
+      // Deduz o prêmio da quadra do montante líquido arrecadado
       valorPagoQuadra = Math.min(valorPremioQuadraConfig, totalLiquidoGeralArrecadado);
     }
 
-    // Prêmio Líquido da Sena (Total Líquido menos o Prêmio da Quadra)
+    // Prêmio Líquido da Sena
     const premioSenaLiquido = totalLiquidoGeralArrecadado - valorPagoQuadra;
-    const premioSenaPrevisto = totalLiquidoGeralPrevisto - (quadraPremiada ? valorPremioQuadraConfig : 0.0);
+    const premioQuadraPrevisto = premioQuadraDinamico
+      ? Math.round(totalLiquidoGeralPrevisto * 0.10 * 100) / 100
+      : valorPremioQuadraConfig;
+    const premioSenaPrevisto = totalLiquidoGeralPrevisto - (quadraPremiada ? valorPagoQuadra : 0.0);
 
     const nomesUnicos = new Set(apostas.map(a => a.nome.trim().toLowerCase())).size;
 
@@ -181,6 +191,8 @@ const BolaoEngine = {
 
       // Informações da Quadra
       premioQuadraConfig: valorPremioQuadraConfig,
+      premioQuadraDinamico: !!premioQuadraDinamico,
+      premioQuadraPrevisto,
       quadraPremiada: !!quadraPremiada,
       valorPagoQuadra,
 
@@ -192,13 +204,14 @@ const BolaoEngine = {
   },
 
   /**
-   * Calcula o prêmio padrão da Quadra como 10% do valor líquido da arrecadação
-   * Líquido = (Total Apostas * Valor Cota) * (1 - Taxa Organizador)
+   * Calcula o prêmio da Quadra como 10% do valor líquido das apostas fornecidas
+   * Líquido = (Total Apostas Pagas * Valor Cota) * (1 - Taxa Organizador)
    */
   calcularPremioQuadraPadrao(totalApostas = 0, valorCota = 24.0, percentualOrganizador = 0.20) {
-    const bruto = totalApostas * valorCota;
+    const total = typeof totalApostas === 'number' && !isNaN(totalApostas) && totalApostas > 0 ? totalApostas : 0;
+    const bruto = total * valorCota;
     const liquido = bruto * (1 - percentualOrganizador);
-    return Math.round(liquido * 0.10);
+    return Math.round(liquido * 0.10 * 100) / 100;
   },
 
   compararComCicloAnterior(apostasBase = [], novasApostas = []) {
@@ -276,4 +289,9 @@ const BolaoEngine = {
   }
 };
 
-window.BolaoEngine = BolaoEngine;
+if (typeof window !== 'undefined') {
+  window.BolaoEngine = BolaoEngine;
+}
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = BolaoEngine;
+}

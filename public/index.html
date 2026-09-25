@@ -496,10 +496,16 @@
             <div class="form-group">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                 <label for="config-premio-quadra" style="margin-bottom: 0;">Prêmio da Quadra (1º Sorteio) (R$)</label>
-                <button type="button" id="btn-recalc-quadra-config" class="btn btn-xs btn-outline" style="font-size: 0.72rem; padding: 2px 8px;" title="Recalcular automaticamente 10% do valor líquido atual">⚡ 10% do Líquido</button>
+                <button type="button" id="btn-recalc-quadra-config" class="btn btn-xs btn-outline" style="font-size: 0.72rem; padding: 2px 8px;" title="Recalcular automaticamente 10% do líquido das apostas pagas">⚡ 10% do Líquido</button>
               </div>
-              <input type="number" id="config-premio-quadra" step="any" min="0" placeholder="Ex: 5000.00" value="0">
-              <small class="form-hint">Padrão: 10% do valor líquido. Você pode alterar manualmente a qualquer momento.</small>
+              <input type="number" id="config-premio-quadra" step="any" min="0" placeholder="0.00" value="0">
+              <div style="margin-top: 6px; display: flex; align-items: center; gap: 8px;">
+                <label style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--text-primary); cursor: pointer;">
+                  <input type="checkbox" id="config-quadra-dinamica" checked style="cursor: pointer;">
+                  <span>Dinâmico (10% do líquido das cotas pagas)</span>
+                </label>
+              </div>
+              <small id="config-premio-quadra-hint" class="form-hint" style="color: var(--text-muted); font-size: 0.75rem; margin-top: 4px;">Calculado dinamicamente com base nas apostas que forem sendo computadas e pagas.</small>
             </div>
           </div>
 
@@ -925,10 +931,10 @@
   </div>
 
   <!-- Scripts Modulares -->
-  <script src="js/caixa-api.js?v=3.6"></script>
-  <script src="js/whatsapp-parser.js?v=3.6"></script>
-  <script src="js/bolao-engine.js?v=3.6"></script>
-  <script src="js/export-share.js?v=3.6"></script>
-  <script src="js/app.js?v=3.6"></script>
+  <script src="js/caixa-api.js?v=3.7"></script>
+  <script src="js/whatsapp-parser.js?v=3.7"></script>
+  <script src="js/bolao-engine.js?v=3.7"></script>
+  <script src="js/export-share.js?v=3.7"></script>
+  <script src="js/app.js?v=3.7"></script>
 </body>
 </html>

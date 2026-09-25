@@ -78,7 +78,8 @@ const ExportShare = {
       msg += `🎯 *Prêmio da Quadra (1º Sorteio):* R$ ${financeiro.valorPagoQuadra.toFixed(2).replace('.', ',')}\n`;
       msg += `🏆 *Prêmio da Sena (Líquido Restante):* R$ ${financeiro.premioSenaLiquido.toFixed(2).replace('.', ',')}\n`;
     } else if (financeiro.premioQuadraConfig > 0) {
-      msg += `🎯 *Reserva da Quadra (1º Sorteio):* R$ ${financeiro.premioQuadraConfig.toFixed(2).replace('.', ',')} *(Deduzido se houver ganhador)*\n`;
+      const label = financeiro.premioQuadraDinamico ? '🎯 *Reserva da Quadra (10% do Líquido):*' : '🎯 *Reserva da Quadra (1º Sorteio):*';
+      msg += `${label} R$ ${financeiro.premioQuadraConfig.toFixed(2).replace('.', ',')} *(Deduzido se houver acertador)*\n`;
       msg += `🏆 *Prêmio da Sena:* R$ ${financeiro.premioSenaLiquido.toFixed(2).replace('.', ',')}\n`;
     } else {
       msg += `🏆 *Prêmio da Sena:* R$ ${financeiro.premioSenaLiquido.toFixed(2).replace('.', ',')}\n`;
@@ -102,7 +103,13 @@ const ExportShare = {
     const dataEncerramento = params.dataEncerramento || 'Domingo às 20h';
     const valorCota = params.valorCota ? `R$ ${Number(params.valorCota).toFixed(2).replace('.', ',')}` : 'R$ 30,00';
     const chavePix = params.chavePix || '';
-    const premioQuadra = params.premioQuadra ? `R$ ${Number(params.premioQuadra).toFixed(2).replace('.', ',')}` : '';
+    
+    let infoQuadra = '';
+    if (params.premioQuadra && Number(params.premioQuadra) > 0) {
+      infoQuadra = `R$ ${Number(params.premioQuadra).toFixed(2).replace('.', ',')}`;
+    } else if (params.premioQuadraDinamico) {
+      infoQuadra = '10% do valor líquido arrecadado';
+    }
 
     let msg = `🍀 *ATENÇÃO PESSOAL — INSCRIÇÕES ABERTAS!* 🍀\n`;
     msg += `🏆 *${nomeBolao.toUpperCase()} — ${cicloNome.toUpperCase()}*\n`;
@@ -113,8 +120,8 @@ const ExportShare = {
     msg += `⏰ *Prazo Limite para Apostas:* ${dataEncerramento}\n`;
     msg += `💰 *Valor por Jogo/Cota:* ${valorCota}\n`;
     
-    if (premioQuadra) {
-      msg += `🎯 *Prêmio Especial da Quadra (1º Sorteio):* ${premioQuadra}\n`;
+    if (infoQuadra) {
+      msg += `🎯 *Prêmio Especial da Quadra (1º Sorteio):* ${infoQuadra}\n`;
     }
     
     if (chavePix) {
