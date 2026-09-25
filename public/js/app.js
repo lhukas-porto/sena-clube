@@ -677,7 +677,11 @@ function renderConcursosBar(ciclo, concursosApuracao) {
   container.innerHTML = '';
 
   if (ciclo.concursos.length === 0) {
-    container.innerHTML = `<span class="empty-concursos-hint">Nenhum sorteio adicionado na <strong>${ciclo.nome}</strong>. Clique em <strong>"Buscar Próximo Sorteio"</strong> para sincronizar com a Caixa ou insira manualmente.</span>`;
+    if (state.isAdmin) {
+      container.innerHTML = `<span class="empty-concursos-hint">Nenhum sorteio adicionado na <strong>${escapeHTML(ciclo.nome)}</strong>. Clique em <strong>"Buscar Próximo Sorteio"</strong> para sincronizar com a Caixa ou insira manualmente.</span>`;
+    } else {
+      container.innerHTML = `<span class="empty-concursos-hint">Nenhum sorteio realizado ainda na <strong>${escapeHTML(ciclo.nome)}</strong>. Aguardando a apuração do primeiro concurso da Mega-Sena.</span>`;
+    }
     return;
   }
 
@@ -909,7 +913,7 @@ function renderTabelaApostas(ciclo, apuracao) {
           <span class="mobile-rank-badge">#${indexAbsoluto}</span>
           <div class="nome-info">
             <strong>${escapeHTML(aposta.nome)}</strong> ${origemBadge}
-            ${aposta.observacao && !aposta.observacao.includes('Importado do PDF') ? `<small>${escapeHTML(aposta.observacao)}</small>` : ''}
+            ${state.isAdmin && aposta.observacao && !aposta.observacao.includes('Importado do PDF') ? `<small class="admin-only">${escapeHTML(aposta.observacao)}</small>` : ''}
           </div>
         </div>
       </td>
