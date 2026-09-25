@@ -1245,7 +1245,7 @@ form {
   margin: 0;
 }
 
-.form-group input, .form-group select, textarea {
+.form-group input, .form-group select {
   width: 100%;
   height: 40px;
   padding: 8px 12px;
@@ -1260,8 +1260,42 @@ form {
   transition: border-color var(--transition-fast);
 }
 
+.form-group textarea,
+textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 10px 12px;
+  box-sizing: border-box;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.88rem;
+  outline: none;
+  resize: vertical;
+  line-height: 1.5;
+  transition: border-color var(--transition-fast);
+}
+
 .form-group input:focus, .form-group select:focus, textarea:focus {
   border-color: var(--emerald-primary);
+}
+
+/* Campo de importação de apostas do WhatsApp ampliado */
+#whatsapp-raw-text {
+  min-height: 220px;
+  height: 260px;
+  max-height: 500px;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 0.90rem;
+  line-height: 1.6;
+  padding: 14px;
+}
+
+#modal-whatsapp .modal-card {
+  max-width: 840px;
+  width: 95vw;
 }
 
 input[type="date"], input[type="time"], input[type="datetime-local"] {
