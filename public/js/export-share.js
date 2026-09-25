@@ -70,7 +70,9 @@ const ExportShare = {
 
     // Resumo financeiro enxuto para grupos (sem Arrecadação Bruta, sem Taxa do Organizador e sem Pagas/Pendentes)
     msg += `\n━━━━━━━━━━━━━━━━━━━━━\n`;
-    msg += `👥 *Total de Apostas:* ${financeiro.totalApostas} (${financeiro.totalApostadores} amigos)\n`;
+    const labelAmigos = financeiro.totalApostadores === 1 ? 'amigo' : 'amigos';
+    const labelApostas = financeiro.totalApostas === 1 ? 'aposta' : 'apostas';
+    msg += `👥 *Total de Apostas:* ${financeiro.totalApostas} ${labelApostas} (${financeiro.totalApostadores} ${labelAmigos})\n`;
     msg += `💰 *Valor da Cota:* R$ ${financeiro.valorCota.toFixed(2).replace('.', ',')}\n`;
     msg += `💰 *Total Líquido do Bolão:* R$ ${financeiro.totalLiquidoGeralArrecadado.toFixed(2).replace('.', ',')}\n`;
     

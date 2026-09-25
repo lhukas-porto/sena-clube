@@ -549,14 +549,15 @@ function renderHeader(ciclo, financeiro, concursosApuracao) {
     const primeiro = ciclo.concursos[0].numero;
     const ultimo = ciclo.concursos[ciclo.concursos.length - 1].numero;
     cicloInfo.textContent = primeiro === ultimo ? `${nomeExibicao} (Conc. ${primeiro})` : `${nomeExibicao} (Conc. ${primeiro} a ${ultimo})`;
-    concursosBadge.textContent = `${ciclo.concursos.length} sorteio(s) acumulado(s) na edição`;
+    concursosBadge.textContent = `${ciclo.concursos.length} ${ciclo.concursos.length === 1 ? 'sorteio acumulado' : 'sorteios acumulados'} na edição`;
     concursosBadge.style.color = '';
   }
 }
 
 function renderKPIs(apuracao, financeiro, ciclo) {
   document.getElementById('kpi-total-apostas').textContent = financeiro.totalApostas.toLocaleString('pt-BR');
-  document.getElementById('kpi-total-apostadores').textContent = `${financeiro.totalApostadores.toLocaleString('pt-BR')} apostadores`;
+  const labelApostadores = financeiro.totalApostadores === 1 ? 'apostador' : 'apostadores';
+  document.getElementById('kpi-total-apostadores').textContent = `${financeiro.totalApostadores.toLocaleString('pt-BR')} ${labelApostadores}`;
 
   // 1. Quadro de Prêmio Líquido (com detalhamento da Quadra e da Sena)
   const elPremioLiquido = document.getElementById('kpi-premio-liquido');
@@ -596,7 +597,8 @@ function renderKPIs(apuracao, financeiro, ciclo) {
 
   // 3. Pendente
   document.getElementById('kpi-total-pendente').textContent = formatarMoeda(financeiro.totalPendenteBruto);
-  document.getElementById('kpi-pendentes-contagem').textContent = `${financeiro.pendentes} aposta(s) pendente(s)`;
+  const labelPendentes = financeiro.pendentes === 1 ? '1 aposta pendente' : `${financeiro.pendentes} apostas pendentes`;
+  document.getElementById('kpi-pendentes-contagem').textContent = labelPendentes;
 
   // 4. Maior Pontuação
   const kpiLiderAcertos = document.getElementById('kpi-lider-acertos');
@@ -788,6 +790,10 @@ function renderTabelaApostas(ciclo, apuracao) {
   document.getElementById('pag-inicio').textContent = (inicioIdx + 1).toLocaleString('pt-BR');
   document.getElementById('pag-fim').textContent = fimIdx.toLocaleString('pt-BR');
   document.getElementById('pag-total').textContent = totalFiltradas.toLocaleString('pt-BR');
+  const elLabelApostas = document.getElementById('pag-label-apostas');
+  if (elLabelApostas) {
+    elLabelApostas.textContent = totalFiltradas === 1 ? 'aposta' : 'apostas';
+  }
   document.getElementById('pagination-page-current').textContent = `Página ${state.paginaAtual} de ${totalPaginas}`;
   document.getElementById('btn-page-prev').disabled = state.paginaAtual <= 1;
   document.getElementById('btn-page-next').disabled = state.paginaAtual >= totalPaginas;
