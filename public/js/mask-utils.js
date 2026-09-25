@@ -64,25 +64,34 @@ const MaskUtils = {
     const str = String(val).trim();
     if (!str) return 'vazio';
 
+    // 1. E-mail
     if (str.includes('@')) return 'email';
 
-    const digits = str.replace(/\D/g, '');
+    // 2. Chave Aleatória (UUID ou chave alfanumérica sem @)
     const temLetras = /[a-zA-Z]/.test(str);
-
     if (temLetras) return 'aleatoria';
 
+    const digits = str.replace(/\D/g, '');
+    if (!digits) return 'vazio';
+
+    // 3. CNPJ (mais de 11 dígitos numéricos)
     if (digits.length > 11) return 'cnpj';
 
-    if (digits.length === 11) {
-      // No Brasil, celular SEMPRE tem 3º dígito = 9 (ex: 61 9 9627-2630)
-      if (digits[2] !== '9') return 'cpf';
-      if (str.startsWith('(') || str.includes(')')) return 'celular';
-      if (str.includes('.')) return 'cpf';
+    // 4. Se possui parênteses de telefone: celular
+    if (str.startsWith('(') || str.includes(')')) return 'celular';
+
+    // 5. No Brasil, celular SEMPRE tem 3º dígito = 9 (ex: DDD 9XXXX-XXXX)
+    if (digits.length >= 3 && digits[2] === '9') {
       return 'celular';
     }
 
-    if (str.startsWith('(')) return 'celular';
+    // 6. Se já possui formatação de CPF
     if (str.includes('.')) return 'cpf';
+
+    // 7. Se o 3º dígito não for 9 (ex: CPF do organizador 828...)
+    if (digits.length >= 3 && digits[2] !== '9') {
+      return 'cpf';
+    }
 
     return digits.length > 0 ? 'cpf' : 'vazio';
   },
@@ -95,44 +104,39 @@ const MaskUtils = {
     const str = String(val).trim();
     if (!str) return '';
 
-    // E-mail
+    // E-mail: preserva minúsculo
     if (str.includes('@')) return str.toLowerCase();
 
     // Chave Aleatória (UUID)
     const temLetras = /[a-zA-Z]/.test(str);
     if (temLetras) return str;
 
-    const digits = str.replace(/\D/g, '');
+    const digits = str.replace(/\D/g, '').slice(0, 14);
     if (!digits) return '';
 
-    // CNPJ
+    // CNPJ (mais de 11 dígitos)
     if (digits.length > 11) {
       return this.formatarCNPJ(digits);
     }
 
-    // 11 dígitos (pode ser CPF ou Celular)
-    if (digits.length === 11) {
-      // Se o 3º dígito NÃO for 9, é 100% de certeza CPF
-      if (digits[2] !== '9') {
-        return this.formatarCPF(digits);
-      }
-      // Se já possui formatação de telefone
-      if (str.startsWith('(') || str.includes(')')) {
-        return this.formatarTelefone(digits);
-      }
-      // Se possui formatação de CPF
-      if (str.includes('.')) {
-        return this.formatarCPF(digits);
-      }
-      // Padrão celular se o 3º dígito for 9
-      return this.formatarTelefone(digits);
-    }
-
-    // Menos de 11 dígitos enquanto digita:
+    // Se já estiver explicitamente iniciado como telefone
     if (str.startsWith('(')) {
       return this.formatarTelefone(digits);
     }
-    return this.formatarCPF(digits);
+
+    // Se tiver 3 ou mais dígitos e o 3º dígito for 9 -> Celular com DDD no Brasil!
+    if (digits.length >= 3 && digits[2] === '9') {
+      return this.formatarTelefone(digits);
+    }
+
+    // Se o 3º dígito NÃO for 9 (ex: 828... do CPF do organizador):
+    // É com 100% de certeza CPF!
+    if (digits.length >= 3 && digits[2] !== '9') {
+      return this.formatarCPF(digits);
+    }
+
+    // Menos de 3 dígitos: preserva os dígitos crus para não presumir máscara precipitadamente
+    return digits;
   },
 
   /**

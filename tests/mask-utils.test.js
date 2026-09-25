@@ -50,7 +50,21 @@ test('MaskUtils - Chave PIX Inteligente (Detecção e Formatação)', () => {
   // Celular com DDD
   assert.equal(MaskUtils.formatarChavePix('61996272630'), '(61) 99627-2630');
   assert.equal(MaskUtils.formatarChavePix('(61) 99627-2630'), '(61) 99627-2630');
+  assert.equal(MaskUtils.identificarTipoPix('61996272630'), 'celular');
   assert.equal(MaskUtils.identificarTipoPix('(61) 99627-2630'), 'celular');
+
+  // Digitação progressiva de Celular (a partir do 3º dígito 9 já detecta celular)
+  assert.equal(MaskUtils.formatarChavePix('619'), '(61) 9');
+  assert.equal(MaskUtils.identificarTipoPix('619'), 'celular');
+  assert.equal(MaskUtils.formatarChavePix('6199'), '(61) 99');
+  assert.equal(MaskUtils.identificarTipoPix('6199'), 'celular');
+  assert.equal(MaskUtils.formatarChavePix('619962'), '(61) 9962');
+
+  // Digitação progressiva de CPF (3º dígito não é 9)
+  assert.equal(MaskUtils.formatarChavePix('828'), '828');
+  assert.equal(MaskUtils.identificarTipoPix('828'), 'cpf');
+  assert.equal(MaskUtils.formatarChavePix('8288'), '828.8');
+  assert.equal(MaskUtils.identificarTipoPix('8288'), 'cpf');
 
   // E-mail
   assert.equal(MaskUtils.formatarChavePix('contato@senaclube.com.br'), 'contato@senaclube.com.br');

@@ -699,7 +699,7 @@ function renderKPIs(apuracao, financeiro, ciclo) {
 
     // Se o organizador estiver logado como admin, exibe quanto já foi confirmado/pago
     if (state.isAdmin) {
-      elPremioQuadraInfo.innerHTML += `<br><span class="admin-only" style="display: inline-block; font-size: 0.72rem; color: var(--text-muted); margin-top: 3px;">Confirmado: <strong>${formatarMoeda(financeiro.premioSenaLiquido)}</strong> (${financeiro.pagas} pagas)</span>`;
+      elPremioQuadraInfo.innerHTML += `<br><span class="admin-only" style="display: inline-block; font-size: 0.72rem; color: var(--text-muted); margin-top: 3px;">Confirmado: <strong>${formatarMoeda(financeiro.premioSenaLiquido)}</strong> (${financeiro.pagas} ${financeiro.pagas === 1 ? 'paga' : 'pagas'})</span>`;
     }
   } else {
     // FASE FECHADA: Mostra o valor oficial consolidado estritamente das apostas pagas
