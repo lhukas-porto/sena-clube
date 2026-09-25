@@ -1199,6 +1199,26 @@ form {
   border-color: var(--emerald-primary);
 }
 
+input[type="date"], input[type="time"], input[type="datetime-local"] {
+  color-scheme: dark;
+  cursor: pointer;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.85);
+  cursor: pointer;
+  opacity: 0.85;
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover,
+input[type="time"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+  transform: scale(1.15);
+}
+
 .form-hint {
   font-size: 0.72rem;
   color: var(--text-muted);
@@ -1382,10 +1402,22 @@ form {
 .relatorio-textarea {
   background: #0d131f;
   color: #e2e8f0;
-  font-family: monospace;
-  font-size: 0.85rem;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 0.88rem;
   line-height: 1.6;
   resize: vertical;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  width: 100%;
+  box-sizing: border-box;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.relatorio-textarea:focus {
+  outline: none;
+  border-color: var(--emerald-primary);
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
 }
 
 .modal-celebration {

@@ -1,17 +1,17 @@
 {
-  "nomeBolao": "Bolao Mega Sena dos amigos",
+  "nomeBolao": "Bolão dos amigos",
   "taxaOrganizadorGlobal": 0.2,
   "cicloVisualizadoId": 1,
   "ciclos": [
     {
       "id": 1,
-      "nome": "Ciclo 1",
+      "nome": "Edição 1",
       "status": "ativo",
-      "concursoInicial": 3061,
+      "concursoInicial": 3064,
       "concursoFinal": null,
       "valorCota": 30,
       "taxaOrganizador": 0.2,
-      "premioQuadra": 5000,
+      "premioQuadra": 0,
       "concursos": [],
       "apostas": [],
       "apostasDescartadas": [],
@@ -22,9 +22,12 @@
       },
       "ganhadorSenaNome": null,
       "ganhadorQuadraNome": null,
-      "criadoEm": "2026-09-24T20:35:48.390Z",
+      "criadoEm": "2026-09-24T22:49:49.593Z",
       "finalizadoEm": null
     }
   ],
-  "savedAt": "2026-09-24T20:36:44.846Z"
+  "textosWhatsAppCustomizados": {
+    "convite-completo": "🍀 *VOCÊ FOI CONVIDADO PARA O NOSSO BOLÃO ENTRE AMIGOS!* 🏆💰\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nE aí, tudo bem? Quero te fazer um convite especial para participar do nosso bolão entre amigos: o *Bolão dos amigos*!\n\nSe você nunca participou, fica tranquilo que a dinâmica é simples, muito divertida e com chances reais de vitória! Veja como funciona:\n\n🎯 *COMO FUNCIONA O JOGO:*\n1️⃣ *Você escolhe 6 dezenas* da sua sorte (de 01 a 60).\n2️⃣ *Sua aposta vale por uma EDIÇÃO INTEIRA* de sorteios — ou seja, você não joga para apenas um dia, seu jogo continua ativo e acumulando acertos a cada sorteio da Mega-Sena da Caixa até termos um vencedor!\n3️⃣ *Valor da cota:* Apenas R$ 30,00 por edição! (Você pode ter mais de uma cota se quiser).\n\n🏆 *AS FORMAS DE GANHAR:*\n💰 *Prêmio Máximo da Sena:* Quem cravar os 6 acertos ao longo da edição leva a bolada principal do bolão!\n⚡ *Prêmio Bônus da Quadra:* Logo no 1º sorteio da edição, se alguém acertar a quadra (4 números), já fatura na hora um prêmio bônus de incentivo!\n\n📱 *TRANSPARÊNCIA TOTAL EM TEMPO REAL:*\nNosso bolão conta com um painel online exclusivo! Você acompanha o ranking de acertos, a apuração automática direto da Caixa e o placar em tempo real:\n👉 https://sena-clube.vercel.app\n\n🔒 *REGRA DE OURO DA CONFIANÇA:*\nAssim que o prazo de inscrições encerra, o sistema trava todas as apostas de forma permanente. Ninguém altera e ninguém inclui jogos de última hora — 100% de transparência e segurança para todos!\n\n⚠️ *AVISO IMPORTANTE (TRANSPARÊNCIA TOTAL):*\nEste é um *bolão particular e recreativo entre amigos*. Ele *NÃO é uma aposta oficial registrada na Caixa Econômica Federal*. Utilizamos exclusivamente as dezenas dos sorteios oficiais da Mega-Sena como base pública e imparcial para nossa apuração interna e premiações do grupo.\n\n👥 *ENTRE NO NOSSO GRUPO DO WHATSAPP:*\nAcompanhe todos os avisos, sorteios direto no grupo:\n👉 https://chat.whatsapp.com/KT4gbhyKUUrBqW9fU2ZGpv\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🚀 *QUER GARANTIR SUA VAGA NA PRÓXIMA EDIÇÃO?*\n\nBasta enviar suas 6 dezenas e o comprovante no meu WhatsApp:\n📲 *(61) 99627-2630*\n👉 Ou clique direto para falar comigo: https://wa.me/5561996272630\n\nBora torcer juntos e buscar essa bolada! Me dá um alô aqui se for entrar! 🏃‍♂️💨🍀"
+  },
+  "savedAt": "2026-09-25T00:04:09.344Z"
 }

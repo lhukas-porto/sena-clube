@@ -11,6 +11,8 @@ const state = {
   taxaOrganizadorGlobal: 0.20,
   cicloVisualizadoId: 1,
   ciclos: [],
+  textosWhatsAppCustomizados: {},
+  abaMensagemWhatsAppAtiva: 'boletim',
   filtroAtual: 'todos',
   buscaTexto: '',
   paginaAtual: 1,
@@ -19,12 +21,22 @@ const state = {
   filtroConcursoAteIndex: null
 };
 
+try {
+  const localTxt = localStorage.getItem('senaclube_textos_whatsapp');
+  if (localTxt) {
+    const parsed = JSON.parse(localTxt);
+    if (parsed && typeof parsed === 'object') {
+      state.textosWhatsAppCustomizados = parsed;
+    }
+  }
+} catch (e) {}
+
 // Helpers de Ciclo
 function getCicloVisualizado() {
   if (!state.ciclos || state.ciclos.length === 0) {
     return {
       id: 1,
-      nome: 'Ciclo 1',
+      nome: 'Edição 1',
       status: 'ativo',
       concursoInicial: 3058,
       valorCota: 24.0,
@@ -77,7 +89,8 @@ async function salvarEstado() {
     nomeBolao: state.nomeBolao,
     taxaOrganizadorGlobal: state.taxaOrganizadorGlobal,
     cicloVisualizadoId: state.cicloVisualizadoId,
-    ciclos: state.ciclos
+    ciclos: state.ciclos,
+    textosWhatsAppCustomizados: state.textosWhatsAppCustomizados || {}
   };
 
   try {
@@ -110,11 +123,24 @@ async function carregarEstado() {
     });
     if (res.ok) {
       const data = await res.json();
-      if (data && data.ciclos && Array.isArray(data.ciclos) && data.ciclos.length > 0) {
-        state.nomeBolao = data.nomeBolao || state.nomeBolao;
-        state.taxaOrganizadorGlobal = typeof data.taxaOrganizadorGlobal === 'number' ? data.taxaOrganizadorGlobal : 0.20;
-        state.ciclos = data.ciclos;
-        state.cicloVisualizadoId = data.cicloVisualizadoId || state.ciclos[0].id;
+      if (data && typeof data === 'object') {
+        if (data.nomeBolao) state.nomeBolao = data.nomeBolao;
+        if (typeof data.taxaOrganizadorGlobal === 'number') state.taxaOrganizadorGlobal = data.taxaOrganizadorGlobal;
+        if (data.textosWhatsAppCustomizados && typeof data.textosWhatsAppCustomizados === 'object') {
+          state.textosWhatsAppCustomizados = Object.assign({}, state.textosWhatsAppCustomizados, data.textosWhatsAppCustomizados);
+          try {
+            localStorage.setItem('senaclube_textos_whatsapp', JSON.stringify(state.textosWhatsAppCustomizados));
+          } catch (e) {}
+        }
+        if (data.ciclos && Array.isArray(data.ciclos) && data.ciclos.length > 0) {
+          state.ciclos = data.ciclos.map(c => {
+            if (c.nome && /^ciclo\s*\d+/i.test(c.nome)) {
+              c.nome = c.nome.replace(/^ciclo/i, 'Edição');
+            }
+            return c;
+          });
+          state.cicloVisualizadoId = data.cicloVisualizadoId || state.ciclos[0].id;
+        }
         atualizarTituloAbaNavegador();
         return;
       }
@@ -219,11 +245,11 @@ function renderBotoesSorteio(ciclo) {
     btnSync.disabled = true;
     btnSync.style.opacity = '0.5';
     btnSync.style.cursor = 'not-allowed';
-    btnSync.title = `Ciclo encerrado. Ganhador(es) da Sena: ${ciclo.ganhadorSenaNome || 'identificado(s)'}.`;
+    btnSync.title = `Edição encerrada. Ganhador(es) da Sena: ${ciclo.ganhadorSenaNome || 'identificado(s)'}.`;
     btnManual.disabled = true;
     btnManual.style.opacity = '0.5';
     btnManual.style.cursor = 'not-allowed';
-    btnManual.title = `Ciclo encerrado. Ganhador(es) da Sena: ${ciclo.ganhadorSenaNome || 'identificado(s)'}.`;
+    btnManual.title = `Edição encerrada. Ganhador(es) da Sena: ${ciclo.ganhadorSenaNome || 'identificado(s)'}.`;
   } else {
     btnSync.disabled = false;
     btnSync.style.opacity = '1';
@@ -248,14 +274,14 @@ function renderBtnFinalizarApostas(ciclo) {
     btnNova.disabled = isFechado;
     btnNova.style.opacity = isFechado ? '0.5' : '1';
     btnNova.style.cursor = isFechado ? 'not-allowed' : 'pointer';
-    btnNova.title = isFechado ? '🔒 Apostas fechadas neste ciclo (bloqueado para adições)' : 'Cadastrar nova aposta individual';
+    btnNova.title = isFechado ? '🔒 Apostas fechadas nesta edição (bloqueado para adições)' : 'Cadastrar nova aposta individual';
   }
 
   if (btnWhats) {
     btnWhats.disabled = isFechado;
     btnWhats.style.opacity = isFechado ? '0.5' : '1';
     btnWhats.style.cursor = isFechado ? 'not-allowed' : 'pointer';
-    btnWhats.title = isFechado ? '🔒 Apostas fechadas neste ciclo (bloqueado para importações)' : 'Importar lista de apostas do WhatsApp';
+    btnWhats.title = isFechado ? '🔒 Apostas fechadas nesta edição (bloqueado para importações)' : 'Importar lista de apostas do WhatsApp';
   }
 
   if (!btn) return;
@@ -293,13 +319,14 @@ function renderBannerCicloEncerrado(ciclo, apuracao) {
       proximoNumero = ciclo.concursoInicial + 1;
     }
 
-    const proxNome = `Ciclo ${state.ciclos.length + 1}`;
+    const proxNome = `Edição ${state.ciclos.length + 1}`;
+    const nomeEdicao = (ciclo.nome || 'Edição').replace(/Ciclo\s*/i, 'Edição ');
     if (titulo) {
       const vencedor = ciclo.ganhadorSenaNome || (apuracao.ganhadoresSena.length > 0 ? apuracao.ganhadoresSena.map(g => g.nome).join(', ') : 'Ganhador da Sena');
-      titulo.textContent = `🏆 ${ciclo.nome} encerrado automaticamente! Ganhador(es) da Sena: ${vencedor}`;
+      titulo.textContent = `🏆 ${nomeEdicao} encerrada automaticamente! Ganhador(es) da Sena: ${vencedor}`;
     }
     if (sub) {
-      sub.textContent = `Para abrir o ${proxNome} com todas as apostas renovadas, informe apenas o concurso inicial:`;
+      sub.textContent = `Para abrir a ${proxNome} com todas as apostas renovadas, informe apenas o concurso inicial:`;
     }
     if (input) {
       input.value = proximoNumero;
@@ -358,20 +385,21 @@ function abrirModalFinalizarApostas(ciclo) {
   const alertLocked = document.getElementById('finalizar-locked-alert');
   const badgeFechado = document.getElementById('badge-fechado-permanente');
 
+  const nomeEdicao = (ciclo.nome || 'Edição').replace(/Ciclo\s*/i, 'Edição ');
   if (ciclo.faseApostas === 'fechada') {
     if (btnConfirmar) btnConfirmar.classList.add('hidden');
     if (alertWarning) alertWarning.classList.add('hidden');
     if (alertLocked) alertLocked.classList.remove('hidden');
     if (badgeFechado) badgeFechado.classList.remove('hidden');
-    document.getElementById('modal-finalizar-title').textContent = `Resumo de Apostas Fechadas (Travado) — ${ciclo.nome}`;
-    document.getElementById('modal-finalizar-desc').textContent = `As inscrições deste ciclo estão permanentemente encerradas. O bolão está travado e blindado com ${todas.length} apostas confirmadas concorrendo nos sorteios.`;
+    document.getElementById('modal-finalizar-title').textContent = `Resumo de Apostas Fechadas (Travado) — ${nomeEdicao}`;
+    document.getElementById('modal-finalizar-desc').textContent = `As inscrições desta edição estão permanentemente encerradas. O bolão está travado e blindado com ${todas.length} apostas confirmadas concorrendo nos sorteios.`;
   } else {
     if (btnConfirmar) btnConfirmar.classList.remove('hidden');
     if (alertWarning) alertWarning.classList.remove('hidden');
     if (alertLocked) alertLocked.classList.add('hidden');
     if (badgeFechado) badgeFechado.classList.add('hidden');
-    document.getElementById('modal-finalizar-title').textContent = `Finalizar Apostas — ${ciclo.nome}`;
-    document.getElementById('modal-finalizar-desc').textContent = `Encerre o período de inscrições. As apostas não confirmadas serão excluídas deste ciclo e não concorrerão nos sorteios!`;
+    document.getElementById('modal-finalizar-title').textContent = `Finalizar Apostas — ${nomeEdicao}`;
+    document.getElementById('modal-finalizar-desc').textContent = `Encerre o período de inscrições. As apostas não confirmadas serão excluídas desta edição e não concorrerão nos sorteios!`;
   }
 
   // Renderiza a aba padrão (Desistentes se houver, ou Mantidas)
@@ -441,9 +469,10 @@ function renderCicloBar() {
   state.ciclos.forEach(c => {
     const opt = document.createElement('option');
     opt.value = c.id;
-    const statusTxt = c.status === 'ativo' ? '🟢 Ativo' : '⚪ Finalizado';
+    const statusTxt = c.status === 'ativo' ? '🟢 Ativa' : '⚪ Finalizada';
     const numSorteios = (c.concursos || []).length;
-    opt.textContent = `${c.nome} (${numSorteios} sorteios) — ${statusTxt}`;
+    const nomeExibicao = (c.nome || 'Edição').replace(/Ciclo\s*/i, 'Edição ');
+    opt.textContent = `${nomeExibicao} (${numSorteios} sorteios) — ${statusTxt}`;
     if (c.id === state.cicloVisualizadoId) opt.selected = true;
     select.appendChild(opt);
   });
@@ -454,31 +483,33 @@ function renderHeader(ciclo, financeiro, concursosApuracao) {
   const concursosBadge = document.getElementById('header-concursos-badge');
   const tituloHistorico = document.getElementById('titulo-historico-ciclo');
 
+  const nomeExibicao = (ciclo.nome || 'Edição').replace(/Ciclo\s*/i, 'Edição ');
+
   if (tituloHistorico) {
-    tituloHistorico.textContent = `Sorteios Realizados no ${ciclo.nome} ${ciclo.status === 'finalizado' ? '(Encerrado)' : ''}`;
+    tituloHistorico.textContent = `Sorteios Realizados na ${nomeExibicao} ${ciclo.status === 'finalizado' ? '(Encerrada)' : ''}`;
   }
 
   if (ciclo.concursos.length === 0) {
-    cicloInfo.textContent = `${ciclo.nome} — Inicial: ${ciclo.concursoInicial}`;
-    concursosBadge.textContent = '0 sorteios no ciclo';
+    cicloInfo.textContent = `${nomeExibicao} — Inicial: ${ciclo.concursoInicial}`;
+    concursosBadge.textContent = '0 sorteios na edição';
     concursosBadge.style.color = '';
   } else if (state.filtroConcursoAteIndex !== null && state.filtroConcursoAteIndex < ciclo.concursos.length) {
     const conc = ciclo.concursos[state.filtroConcursoAteIndex];
-    cicloInfo.textContent = `${ciclo.nome} (Até Conc. ${conc.numero})`;
+    cicloInfo.textContent = `${nomeExibicao} (Até Conc. ${conc.numero})`;
     concursosBadge.textContent = `${state.filtroConcursoAteIndex + 1} de ${ciclo.concursos.length} sorteios (Filtrado)`;
     concursosBadge.style.color = 'var(--gold-primary)';
   } else {
     const primeiro = ciclo.concursos[0].numero;
     const ultimo = ciclo.concursos[ciclo.concursos.length - 1].numero;
-    cicloInfo.textContent = primeiro === ultimo ? `${ciclo.nome} (Conc. ${primeiro})` : `${ciclo.nome} (Conc. ${primeiro} a ${ultimo})`;
-    concursosBadge.textContent = `${ciclo.concursos.length} sorteio(s) acumulado(s)`;
+    cicloInfo.textContent = primeiro === ultimo ? `${nomeExibicao} (Conc. ${primeiro})` : `${nomeExibicao} (Conc. ${primeiro} a ${ultimo})`;
+    concursosBadge.textContent = `${ciclo.concursos.length} sorteio(s) acumulado(s) na edição`;
     concursosBadge.style.color = '';
   }
 }
 
 function renderKPIs(apuracao, financeiro, ciclo) {
   document.getElementById('kpi-total-apostas').textContent = financeiro.totalApostas.toLocaleString('pt-BR');
-  document.getElementById('kpi-total-apostadores').textContent = `${financeiro.totalApostadores.toLocaleString('pt-BR')} amigos únicos`;
+  document.getElementById('kpi-total-apostadores').textContent = `${financeiro.totalApostadores.toLocaleString('pt-BR')} apostadores`;
 
   // 1. Quadro de Prêmio Líquido (com detalhamento da Quadra e da Sena)
   const elPremioLiquido = document.getElementById('kpi-premio-liquido');
@@ -540,7 +571,7 @@ function renderConcursosBar(ciclo, concursosApuracao) {
   container.innerHTML = '';
 
   if (ciclo.concursos.length === 0) {
-    container.innerHTML = `<span class="empty-concursos-hint">Nenhum sorteio adicionado no <strong>${ciclo.nome}</strong>. Clique em <strong>"Buscar Próximo Sorteio"</strong> para sincronizar com a Caixa ou insira manualmente.</span>`;
+    container.innerHTML = `<span class="empty-concursos-hint">Nenhum sorteio adicionado na <strong>${ciclo.nome}</strong>. Clique em <strong>"Buscar Próximo Sorteio"</strong> para sincronizar com a Caixa ou insira manualmente.</span>`;
     return;
   }
 
@@ -634,7 +665,7 @@ function renderLegenda(ciclo, concursosApuracao) {
   itemsContainer.innerHTML = '';
 
   if (ciclo.concursos.length === 0) {
-    itemsContainer.innerHTML = '<span style="color: var(--text-muted);">Cores serão ativadas no 1º concurso do ciclo.</span>';
+    itemsContainer.innerHTML = '<span style="color: var(--text-muted);">Cores serão ativadas no 1º concurso da edição.</span>';
     return;
   }
 
@@ -750,7 +781,7 @@ function renderTabelaApostas(ciclo, apuracao) {
       ? `<span class="badge-origem nova" title="Novo participante">Nova</span>`
       : aposta.origem === 'alterada'
       ? `<span class="badge-origem alterada" title="Números alterados">Alterada</span>`
-      : `<span class="badge-origem mantida" title="Jogo mantido do ciclo anterior">Mantida</span>`;
+      : `<span class="badge-origem mantida" title="Jogo mantido da edição anterior">Mantida</span>`;
 
     const isCampeao = aposta.totalAcertos >= 6;
     const campeaoTag = isCampeao ? `<div class="campeao-slot"><span class="badge-campeao-sena">🏆 CAMPEÃO</span></div>` : '';
@@ -779,7 +810,7 @@ function renderTabelaApostas(ciclo, apuracao) {
         ${!isBloqueado ? `
           <button class="btn-table-action" onclick="editarAposta('${aposta.id}')" title="Editar">✏️</button>
           <button class="btn-table-action delete" onclick="excluirAposta('${aposta.id}')" title="Excluir">🗑️</button>
-        ` : `<span style="display: inline-flex; align-items: center; gap: 4px; color: var(--text-muted); font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.05);" title="Apostas fechadas neste ciclo. Alterações não permitidas nem mesmo pelo administrador.">🔒 Fechada</span>`}
+        ` : `<span style="display: inline-flex; align-items: center; gap: 4px; color: var(--text-muted); font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.05);" title="Apostas fechadas nesta edição. Alterações não permitidas nem mesmo pelo administrador.">🔒 Fechada</span>`}
       </td>
     `;
     fragment.appendChild(tr);
@@ -836,7 +867,7 @@ function exibirModalQuadra(ganhadores) {
     <div class="celebration-winner-card">
       <div>
         <strong>${g.nome}</strong>
-        <p style="color: var(--text-secondary); font-size: 0.85rem;">Acertou ${g.acertosNoPrimeiroSorteio} dezenas na abertura do ciclo!${premioQuadraTexto}</p>
+        <p style="color: var(--text-secondary); font-size: 0.85rem;">Acertou ${g.acertosNoPrimeiroSorteio} dezenas na abertura da edição!${premioQuadraTexto}</p>
       </div>
       <span class="badge-seq" style="background: var(--gold-primary); color: #000; font-size: 0.9rem; padding: 4px 10px;">
         🎯 Quadra!
@@ -868,7 +899,7 @@ function exibirModalSena(ganhadores) {
 window.togglePagamentoAposta = function(id) {
   const ciclo = getCicloVisualizado();
   if (ciclo.faseApostas === 'fechada' || ciclo.status === 'finalizado') {
-    alert('🔒 Ação bloqueada: As apostas deste ciclo já estão fechadas! Conforme a regra de transparência, nem mesmo o administrador pode alterar o status de pagamento ou confirmação.');
+    alert('🔒 Ação bloqueada: As apostas desta edição já estão fechadas! Conforme a regra de transparência, nem mesmo o administrador pode alterar o status de pagamento ou confirmação.');
     return;
   }
   const aposta = ciclo.apostas.find(a => a.id === id);
@@ -883,7 +914,7 @@ window.togglePagamentoAposta = function(id) {
 window.excluirAposta = function(id) {
   const ciclo = getCicloVisualizado();
   if (ciclo.faseApostas === 'fechada' || ciclo.status === 'finalizado') {
-    alert('🔒 Ação bloqueada: As apostas deste ciclo já estão fechadas! Nenhuma aposta pode ser excluída, nem mesmo pelo administrador.');
+    alert('🔒 Ação bloqueada: As apostas desta edição já estão fechadas! Nenhuma aposta pode ser excluída, nem mesmo pelo administrador.');
     return;
   }
   const aposta = ciclo.apostas.find(a => a.id === id);
@@ -898,7 +929,7 @@ window.excluirAposta = function(id) {
 window.editarAposta = function(id) {
   const ciclo = getCicloVisualizado();
   if (ciclo.faseApostas === 'fechada' || ciclo.status === 'finalizado') {
-    alert('🔒 Ação bloqueada: As apostas deste ciclo já estão fechadas! Nenhuma aposta pode ser editada, nem mesmo pelo administrador.');
+    alert('🔒 Ação bloqueada: As apostas desta edição já estão fechadas! Nenhuma aposta pode ser editada, nem mesmo pelo administrador.');
     return;
   }
   const aposta = ciclo.apostas.find(a => a.id === id);
@@ -981,7 +1012,7 @@ function setupEventListeners() {
     // Padrão: 10% do valor líquido calculado automaticamente
     const quadraPadrao = BolaoEngine.calcularPremioQuadraPadrao(numApostasEstimadas, cotaPadrao, taxa);
 
-    document.getElementById('novo-ciclo-nome').value = `Ciclo ${state.ciclos.length + 1}`;
+    document.getElementById('novo-ciclo-nome').value = `Edição ${state.ciclos.length + 1}`;
     document.getElementById('novo-ciclo-concurso').value = proximoConcurso;
     document.getElementById('novo-ciclo-cota').value = cotaPadrao;
     document.getElementById('novo-ciclo-premio-quadra').value = quadraPadrao;
@@ -1035,7 +1066,7 @@ function setupEventListeners() {
         pago: false,
         confirmada: false,
         origem: 'mantida',
-        observacao: 'Renovado do ciclo anterior',
+        observacao: 'Renovado da edição anterior',
         criadoEm: new Date().toISOString()
       }));
     }
@@ -1075,7 +1106,7 @@ function setupEventListeners() {
     fecharModal('modal-novo-ciclo');
     renderApp();
 
-    alert(`🎉 ${nome} aberto com sucesso com concurso inicial ${concursoInicial}!\nPrêmio da Quadra fixado em R$ ${premioQuadra.toFixed(2).replace('.', ',')} (10% do líquido).`);
+    alert(`🎉 ${nome} aberta com sucesso com concurso inicial ${concursoInicial}!\nPrêmio da Quadra fixado em R$ ${premioQuadra.toFixed(2).replace('.', ',')} (10% do líquido).`);
   });
 
   // Form Quick: Iniciar Novo Ciclo via Banner
@@ -1116,7 +1147,7 @@ function setupEventListeners() {
   document.getElementById('btn-modal-nova-aposta').addEventListener('click', () => {
     const ciclo = getCicloVisualizado();
     if (ciclo.faseApostas === 'fechada' || ciclo.status === 'finalizado') {
-      alert('🔒 As apostas deste ciclo estão fechadas! Não é permitido cadastrar novas apostas.');
+      alert('🔒 As apostas desta edição estão fechadas! Não é permitido cadastrar novas apostas.');
       return;
     }
     document.getElementById('form-aposta').reset();
@@ -1128,7 +1159,7 @@ function setupEventListeners() {
   document.getElementById('btn-modal-whatsapp').addEventListener('click', () => {
     const ciclo = getCicloVisualizado();
     if (ciclo.faseApostas === 'fechada' || ciclo.status === 'finalizado') {
-      alert('🔒 As apostas deste ciclo estão fechadas! Não é permitido importar apostas.');
+      alert('🔒 As apostas desta edição estão fechadas! Não é permitido importar apostas.');
       return;
     }
     abrirModal('modal-whatsapp');
@@ -1170,18 +1201,18 @@ function setupEventListeners() {
   document.getElementById('btn-copiar-apostas-anterior')?.addEventListener('click', () => {
     const ciclo = getCicloVisualizado();
     if (ciclo.faseApostas === 'fechada' || ciclo.status === 'finalizado') {
-      alert('🔒 As apostas deste ciclo já estão fechadas e travadas contra alterações.');
+      alert('🔒 As apostas desta edição já estão fechadas e travadas contra alterações.');
       return;
     }
     const cicloAnterior = getCicloAnterior();
     if (!cicloAnterior || !cicloAnterior.apostas || cicloAnterior.apostas.length === 0) {
-      alert('Nenhum ciclo anterior com apostas foi encontrado no histórico.');
+      alert('Nenhuma edição anterior com apostas foi encontrada no histórico.');
       return;
     }
     const confirmou = confirm(
-      `Deseja copiar as ${cicloAnterior.apostas.length.toLocaleString('pt-BR')} apostas do ${cicloAnterior.nome} para o ${ciclo.nome}?\n\n` +
+      `Deseja copiar as ${cicloAnterior.apostas.length.toLocaleString('pt-BR')} apostas da ${cicloAnterior.nome} para a ${ciclo.nome}?\n\n` +
       `• As apostas serão importadas com as dezenas originais e marcadas como aguardando confirmação (Pendente).\n` +
-      `• Substituirá a lista de apostas atual do ${ciclo.nome}.`
+      `• Substituirá a lista de apostas atual da ${ciclo.nome}.`
     );
     if (!confirmou) return;
 
@@ -1192,14 +1223,14 @@ function setupEventListeners() {
       pago: false,
       confirmada: false,
       origem: 'mantida',
-      observacao: `Copiada do ${cicloAnterior.nome}`,
+      observacao: `Copiada da ${cicloAnterior.nome}`,
       criadoEm: new Date().toISOString()
     }));
 
     salvarEstado();
     fecharModal('modal-config');
     renderApp();
-    alert(`✅ ${ciclo.apostas.length.toLocaleString('pt-BR')} apostas do ${cicloAnterior.nome} copiadas com sucesso para o ${ciclo.nome}!`);
+    alert(`✅ ${ciclo.apostas.length.toLocaleString('pt-BR')} apostas da ${cicloAnterior.nome} copiadas com sucesso para a ${ciclo.nome}!`);
   });
 
   // Botão: Finalizar Apostas
@@ -1230,9 +1261,9 @@ function setupEventListeners() {
     }
 
     const confirmou = confirm(
-      `Deseja realmente finalizar as apostas do ${ciclo.nome}?\n\n` +
+      `Deseja realmente finalizar as apostas da ${ciclo.nome}?\n\n` +
       `• ${confirmadas.length.toLocaleString('pt-BR')} aposta(s) confirmada(s) permanecerão no bolão.\n` +
-      `• ${desistentes.length.toLocaleString('pt-BR')} aposta(s) não confirmada(s) serão EXCLUÍDAS deste ciclo e não passarão para os ciclos seguintes.`
+      `• ${desistentes.length.toLocaleString('pt-BR')} aposta(s) não confirmada(s) serão EXCLUÍDAS desta edição e não passarão para as edições seguintes.`
     );
 
     if (!confirmou) return;
@@ -1248,7 +1279,7 @@ function setupEventListeners() {
     fecharModal('modal-finalizar-apostas');
     renderApp();
 
-    alert(`🎉 Apostas do ${ciclo.nome} finalizadas com sucesso!\nO bolão foi fechado com ${confirmadas.length.toLocaleString('pt-BR')} apostas ativas prontas para apuração.`);
+    alert(`🎉 Apostas da ${ciclo.nome} finalizadas com sucesso!\nO bolão foi fechado com ${confirmadas.length.toLocaleString('pt-BR')} apostas ativas prontas para apuração.`);
   });
 
   document.getElementById('btn-manual-sorteio').addEventListener('click', () => {
@@ -1269,7 +1300,7 @@ function setupEventListeners() {
     e.preventDefault();
     const ciclo = getCicloVisualizado();
     if (ciclo.faseApostas === 'fechada' || ciclo.status === 'finalizado') {
-      alert('🔒 Ação bloqueada: As apostas deste ciclo já estão fechadas! Conforme as regras, nenhuma aposta pode ser adicionada ou alterada.');
+      alert('🔒 Ação bloqueada: As apostas desta edição já estão fechadas! Conforme as regras, nenhuma aposta pode ser adicionada ou alterada.');
       fecharModal('modal-aposta');
       return;
     }
@@ -1519,7 +1550,7 @@ function setupEventListeners() {
     e.preventDefault();
     const ciclo = getCicloVisualizado();
     if (ciclo.status === 'finalizado') {
-      alert(`O ${ciclo.nome} já foi encerrado porque a Sena foi premiada!\nInicie o próximo ciclo para continuar a apuração.`);
+      alert(`A ${ciclo.nome} já foi encerrada porque a Sena foi premiada!\nInicie a próxima edição para continuar a apuração.`);
       return;
     }
     const numero = parseInt(document.getElementById('sorteio-numero').value, 10);
@@ -1544,7 +1575,7 @@ function setupEventListeners() {
 
     const jaExiste = ciclo.concursos.find(c => c.numero === numero);
     if (jaExiste) {
-      alert(`O concurso ${numero} já está no ciclo!`);
+      alert(`O concurso ${numero} já está na edição!`);
       return;
     }
 
@@ -1561,9 +1592,9 @@ function setupEventListeners() {
     renderApp();
 
     if (ciclo.status === 'finalizado') {
-      mostrarNotificacaoToast(`🏆 Concurso ${numero} apurado: Ganhador(es) da Sena identificado(s)! Ciclo encerrado.`);
+      mostrarNotificacaoToast(`🏆 Concurso ${numero} apurado: Ganhador(es) da Sena identificado(s)! Edição encerrada.`);
     } else {
-      mostrarNotificacaoToast(`✅ Concurso ${numero} inserido e apurado no ${ciclo.nome}!`);
+      mostrarNotificacaoToast(`✅ Concurso ${numero} inserido e apurado na ${ciclo.nome}!`);
     }
   });
 
@@ -1610,7 +1641,7 @@ function setupEventListeners() {
   // Botão: Zerar Sorteios
   document.getElementById('btn-zerar-ciclo').addEventListener('click', () => {
     const ciclo = getCicloVisualizado();
-    if (confirm(`Tem certeza que deseja zerar os sorteios do ${ciclo.nome}? As apostas e participantes serão MANTIDOS.`)) {
+    if (confirm(`Tem certeza que deseja zerar os sorteios da ${ciclo.nome}? As apostas e participantes serão MANTIDOS.`)) {
       ciclo.concursos = [];
       ciclo.alertasExibidos = { quadraCicloId: null, senaCicloId: null };
       ciclo.ganhadorSenaNome = null;
@@ -1620,7 +1651,7 @@ function setupEventListeners() {
       salvarEstado();
       fecharModal('modal-config');
       renderApp();
-      alert(`Sorteios do ${ciclo.nome} reiniciados com sucesso!`);
+      alert(`Sorteios da ${ciclo.nome} reiniciados com sucesso!`);
     }
   });
 
@@ -1628,19 +1659,19 @@ function setupEventListeners() {
   document.getElementById('btn-excluir-todas-apostas').addEventListener('click', () => {
     const ciclo = getCicloVisualizado();
     if (ciclo.faseApostas === 'fechada' || ciclo.status === 'finalizado') {
-      alert('🔒 Ação bloqueada: As apostas deste ciclo já estão fechadas e protegidas contra exclusão.');
+      alert('🔒 Ação bloqueada: As apostas desta edição já estão fechadas e protegidas contra exclusão.');
       return;
     }
     const totalApostas = (ciclo.apostas || []).length;
 
     if (totalApostas === 0) {
-      alert(`O ${ciclo.nome} já não possui nenhuma aposta cadastrada.`);
+      alert(`A ${ciclo.nome} já não possui nenhuma aposta cadastrada.`);
       return;
     }
 
     const confirmou = confirm(
-      `⚠️ ATENÇÃO: Deseja realmente EXCLUIR TODAS as ${totalApostas.toLocaleString('pt-BR')} apostas do ${ciclo.nome}?\n\n` +
-      `• Todas as cotas e participantes deste ciclo serão apagados permanentemente.\n` +
+      `⚠️ ATENÇÃO: Deseja realmente EXCLUIR TODAS as ${totalApostas.toLocaleString('pt-BR')} apostas da ${ciclo.nome}?\n\n` +
+      `• Todas as cotas e participantes desta edição serão apagados permanentemente.\n` +
       `• Os sorteios já apurados (${ciclo.concursos.length}) serão preservados.\n\n` +
       `Tem certeza absoluta que deseja prosseguir?`
     );
@@ -1655,7 +1686,7 @@ function setupEventListeners() {
     fecharModal('modal-config');
     renderApp();
 
-    alert(`🗑️ Todas as apostas do ${ciclo.nome} foram excluídas com sucesso!`);
+    alert(`🗑️ Todas as apostas da ${ciclo.nome} foram excluídas com sucesso!`);
   });
 
   // Botão: Excluir Ciclo Atual (via Configurações)
@@ -1665,9 +1696,58 @@ function setupEventListeners() {
   });
 
   // Modal Relatório & Central de Mensagens WhatsApp
-  let abaMensagemAtiva = 'boletim';
+  function getNomeAbaWhatsApp(tabKey) {
+    const nomes = {
+      'boletim': 'Boletim de Apuração',
+      'abertura-padrao': 'Abertura de Novo Bolão',
+      'lembrete-fechamento': 'Lembrete de Encerramento',
+      'convite-completo': 'Convite Explicativo',
+      'convite-rapido': 'Convite Rápido'
+    };
+    return nomes[tabKey] || 'Mensagem';
+  }
 
-  function atualizarTextoMensagemWhatsApp() {
+  function atualizarBadgeStatusMensagem(status, horaSalvamento = null) {
+    const badge = document.getElementById('badge-msg-custom-status');
+    const btnRestaurar = document.getElementById('btn-restaurar-texto-whatsapp');
+    if (!badge) return;
+
+    if (status === 'customizado') {
+      const horaTexto = horaSalvamento ? ` às ${horaSalvamento}` : '';
+      badge.innerHTML = `💾 Modelo Personalizado Salvo${horaTexto}`;
+      badge.style.background = 'rgba(16, 185, 129, 0.2)';
+      badge.style.color = '#10b981';
+      badge.style.borderColor = 'rgba(16, 185, 129, 0.5)';
+      if (btnRestaurar) {
+        btnRestaurar.disabled = false;
+        btnRestaurar.style.opacity = '1';
+        btnRestaurar.style.cursor = 'pointer';
+      }
+    } else if (status === 'editado') {
+      badge.innerHTML = '✏️ Alterações Não Salvas (Clique em "Salvar")';
+      badge.style.background = 'rgba(245, 158, 11, 0.2)';
+      badge.style.color = '#f59e0b';
+      badge.style.borderColor = 'rgba(245, 158, 11, 0.5)';
+      if (btnRestaurar) {
+        btnRestaurar.disabled = false;
+        btnRestaurar.style.opacity = '1';
+        btnRestaurar.style.cursor = 'pointer';
+      }
+    } else {
+      badge.innerHTML = '✨ Modelo Automático';
+      badge.style.background = 'rgba(59, 130, 246, 0.15)';
+      badge.style.color = '#60a5fa';
+      badge.style.borderColor = 'rgba(59, 130, 246, 0.3)';
+      if (btnRestaurar) {
+        btnRestaurar.disabled = true;
+        btnRestaurar.style.opacity = '0.45';
+        btnRestaurar.style.cursor = 'not-allowed';
+      }
+    }
+  }
+
+  function atualizarTextoMensagemWhatsApp(forcarRegeneracao = false) {
+    const tabAtual = state.abaMensagemWhatsAppAtiva || 'boletim';
     const ciclo = getCicloVisualizado();
     const apuracao = BolaoEngine.apurar(ciclo.apostas, ciclo.concursos);
     const taxa = typeof ciclo.taxaOrganizador === 'number' ? ciclo.taxaOrganizador : state.taxaOrganizadorGlobal;
@@ -1679,28 +1759,60 @@ function setupEventListeners() {
     const panelParams = document.getElementById('msg-custom-params');
     const descEl = document.getElementById('msg-tab-desc');
 
-    const dataInicio = document.getElementById('msg-param-inicio')?.value || 'Terça-feira (06/10)';
-    const dataEncerramento = document.getElementById('msg-param-encerramento')?.value || 'Domingo (04/10) até as 20h';
+    inicializarDatasParametrosMensagem();
+
+    const valDateInicio = document.getElementById('msg-param-inicio-date')?.value;
+    const valDateEncerramento = document.getElementById('msg-param-encerramento-date')?.value;
+    const valHoraEncerramento = document.getElementById('msg-param-encerramento-time')?.value || '20:00';
+
+    const dataInicio = formatarDataSorteioExtenso(valDateInicio);
+    const dataEncerramento = formatarDataEncerramentoExtenso(valDateEncerramento, valHoraEncerramento);
+
+    // Atualiza badges visuais com o formato amigável gerado
+    const badgeInicio = document.getElementById('badge-preview-inicio');
+    if (badgeInicio) badgeInicio.textContent = dataInicio;
+
+    const badgeEncerramento = document.getElementById('badge-preview-encerramento');
+    if (badgeEncerramento) badgeEncerramento.textContent = dataEncerramento;
+
     const chavePix = document.getElementById('msg-param-pix')?.value || '';
 
-    // Extrai o nome da equipe a partir do nome do bolão (ex: "W.M")
-    let nomeEquipe = 'W.M';
-    if (state.nomeBolao && state.nomeBolao.toUpperCase().includes('W.M')) {
-      nomeEquipe = 'W.M';
-    } else if (state.nomeBolao) {
-      nomeEquipe = state.nomeBolao;
-    }
-
-    if (abaMensagemAtiva === 'boletim') {
+    // Atualiza visibilidade dos campos de parâmetros e descrições
+    if (tabAtual === 'boletim') {
       if (panelParams) panelParams.classList.add('hidden');
       if (descEl) descEl.textContent = 'Texto já formatado com o ranking de acertos, premiação líquida da Sena e da Quadra (sem arrecadação bruta ou taxas).';
-      txtArea.value = ExportShare.gerarRelatorioWhatsApp(state, apuracao, financeiro, ciclo);
-    } else if (abaMensagemAtiva === 'abertura-padrao') {
+    } else if (tabAtual === 'abertura-padrao') {
       if (panelParams) panelParams.classList.remove('hidden');
       if (descEl) descEl.textContent = 'Modelo vibrante e direto para anunciar que as inscrições do novo bolão estão oficialmente abertas.';
+    } else if (tabAtual === 'lembrete-fechamento') {
+      if (panelParams) panelParams.classList.remove('hidden');
+      if (descEl) descEl.textContent = 'Lembrete de contagem regressiva avisando sobre o encerramento do prazo e o travamento das apostas.';
+    } else if (tabAtual === 'convite-completo') {
+      if (panelParams) panelParams.classList.add('hidden');
+      if (descEl) descEl.textContent = 'Convite completo e didático ideal para apresentar o bolão a novos amigos e explicar as regras passo a passo.';
+    } else if (tabAtual === 'convite-rapido') {
+      if (panelParams) panelParams.classList.add('hidden');
+      if (descEl) descEl.textContent = 'Convite curto e direto ao ponto com foco em engajamento rápido para amigos no WhatsApp.';
+    }
+
+    // Se o usuário já salvou um modelo personalizado para esta aba e não solicitou restauração, usa o salvo
+    const hasCustom = state.textosWhatsAppCustomizados && typeof state.textosWhatsAppCustomizados[tabAtual] === 'string' && state.textosWhatsAppCustomizados[tabAtual].trim() !== '';
+
+    if (hasCustom && !forcarRegeneracao) {
+      if (txtArea) txtArea.value = state.textosWhatsAppCustomizados[tabAtual];
+      atualizarBadgeStatusMensagem('customizado');
+      return;
+    }
+
+    // Caso automático (ou restauração):
+    atualizarBadgeStatusMensagem('automatico');
+
+    if (tabAtual === 'boletim') {
+      txtArea.value = ExportShare.gerarRelatorioWhatsApp(state, apuracao, financeiro, ciclo);
+    } else if (tabAtual === 'abertura-padrao') {
       txtArea.value = ExportShare.gerarMensagemAberturaPadrao({
         nomeBolao: state.nomeBolao || 'Bolão entre Amigos',
-        cicloNome: ciclo.nome || 'Novo Ciclo',
+        cicloNome: ciclo.nome || 'Nova Edição',
         concursoInicial: ciclo.concursoInicial || 3061,
         dataInicio,
         dataEncerramento,
@@ -1708,14 +1820,98 @@ function setupEventListeners() {
         chavePix,
         premioQuadra: ciclo.premioQuadra || 0.0
       });
-    } else if (abaMensagemAtiva === 'lembrete-fechamento') {
-      if (panelParams) panelParams.classList.remove('hidden');
-      if (descEl) descEl.textContent = 'Lembrete de contagem regressiva avisando sobre o encerramento do prazo e o travamento das apostas.';
+    } else if (tabAtual === 'lembrete-fechamento') {
       txtArea.value = ExportShare.gerarMensagemLembreteFechamento({
         nomeBolao: state.nomeBolao || 'Bolão entre Amigos',
         dataEncerramento,
         chavePix
       });
+    } else if (tabAtual === 'convite-completo') {
+      txtArea.value = ExportShare.gerarMensagemConviteCompleto({
+        nomeBolao: state.nomeBolao || 'SenaClube',
+        valorCota: ciclo.valorCota || 30.0,
+        whatsapp: '(61) 99627-2630',
+        whatsappLink: 'https://wa.me/5561996272630',
+        linkApp: 'https://sena-clube.vercel.app',
+        linkGrupoWhatsApp: 'https://chat.whatsapp.com/KT4gbhyKUUrBqW9fU2ZGpv'
+      });
+    } else if (tabAtual === 'convite-rapido') {
+      txtArea.value = ExportShare.gerarMensagemConviteRapido({
+        nomeBolao: state.nomeBolao || 'Bolão entre Amigos',
+        valorCota: ciclo.valorCota || 30.0,
+        whatsapp: '(61) 99627-2630',
+        whatsappLink: 'https://wa.me/5561996272630',
+        linkApp: 'https://sena-clube.vercel.app',
+        linkGrupoWhatsApp: 'https://chat.whatsapp.com/KT4gbhyKUUrBqW9fU2ZGpv'
+      });
+    }
+  }
+
+  // Funções auxiliares para formatação de datas dos comunicados
+  function formatarDataSorteioExtenso(dateString) {
+    if (!dateString) return 'A definir';
+    const partes = dateString.split('-');
+    if (partes.length !== 3) return dateString;
+    const ano = parseInt(partes[0], 10);
+    const mes = parseInt(partes[1], 10);
+    const dia = parseInt(partes[2], 10);
+    const dataObj = new Date(ano, mes - 1, dia, 12, 0, 0);
+    const diasSemana = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+    const diaSemana = diasSemana[dataObj.getDay()];
+    const diaStr = String(dia).padStart(2, '0');
+    const mesStr = String(mes).padStart(2, '0');
+    return `${diaSemana} (${diaStr}/${mesStr})`;
+  }
+
+  function formatarDataEncerramentoExtenso(dateString, horaString = '20:00') {
+    if (!dateString) return 'A definir';
+    const partes = dateString.split('-');
+    if (partes.length !== 3) return dateString;
+    const ano = parseInt(partes[0], 10);
+    const mes = parseInt(partes[1], 10);
+    const dia = parseInt(partes[2], 10);
+    const dataObj = new Date(ano, mes - 1, dia, 12, 0, 0);
+    const diasSemana = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+    const diaSemana = diasSemana[dataObj.getDay()];
+    const diaStr = String(dia).padStart(2, '0');
+    const mesStr = String(mes).padStart(2, '0');
+    let sufixoHora = '';
+    if (horaString) {
+      if (horaString.endsWith(':00')) {
+        sufixoHora = ` até as ${parseInt(horaString, 10)}h`;
+      } else {
+        sufixoHora = ` até as ${horaString.replace(':', 'h')}`;
+      }
+    }
+    return `${diaSemana} (${diaStr}/${mesStr})${sufixoHora}`;
+  }
+
+  function inicializarDatasParametrosMensagem() {
+    const inputInicio = document.getElementById('msg-param-inicio-date');
+    const inputEncerramento = document.getElementById('msg-param-encerramento-date');
+    const inputHora = document.getElementById('msg-param-encerramento-time');
+
+    if (inputInicio && !inputInicio.value) {
+      const hoje = new Date();
+      const dataSorteio = new Date();
+      dataSorteio.setDate(hoje.getDate() + 5);
+      const dataEncerra = new Date();
+      dataEncerra.setDate(hoje.getDate() + 3);
+
+      const toISO = d => {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const dia = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${dia}`;
+      };
+
+      inputInicio.value = toISO(dataSorteio);
+      if (inputEncerramento && !inputEncerramento.value) {
+        inputEncerramento.value = toISO(dataEncerra);
+      }
+      if (inputHora && !inputHora.value) {
+        inputHora.value = '20:00';
+      }
     }
   }
 
@@ -1724,21 +1920,148 @@ function setupEventListeners() {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.msg-tab-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      abaMensagemAtiva = btn.getAttribute('data-msg-tab');
+      state.abaMensagemWhatsAppAtiva = btn.getAttribute('data-msg-tab');
       atualizarTextoMensagemWhatsApp();
     });
   });
 
-  // Atualiza em tempo real ao editar qualquer campo dos parâmetros de comunicado
-  ['msg-param-inicio', 'msg-param-encerramento', 'msg-param-pix'].forEach(id => {
-    document.getElementById(id)?.addEventListener('input', () => {
-      if (abaMensagemAtiva !== 'boletim') {
-        atualizarTextoMensagemWhatsApp();
-      }
+  // Detecta quando o usuário digita/edita o texto da mensagem no textarea
+  const txtAreaMsg = document.getElementById('relatorio-whatsapp-text');
+  if (txtAreaMsg) {
+    txtAreaMsg.addEventListener('input', () => {
+      atualizarBadgeStatusMensagem('editado');
     });
+  }
+
+  // Função Global: Salvar Modelo de Mensagem Atual
+  window.salvarModeloWhatsApp = async function() {
+    const btnSalvar = document.getElementById('btn-salvar-texto-whatsapp');
+    const txtArea = document.getElementById('relatorio-whatsapp-text');
+    if (!txtArea) return;
+
+    const valor = txtArea.value;
+    const tabAtual = state.abaMensagemWhatsAppAtiva || 'boletim';
+    const nomeAba = getNomeAbaWhatsApp(tabAtual);
+
+    const originalHtml = btnSalvar ? btnSalvar.innerHTML : '💾 Salvar Este Modelo';
+    if (btnSalvar) {
+      btnSalvar.disabled = true;
+      btnSalvar.innerHTML = '⏳ Salvando Alterações...';
+      btnSalvar.style.opacity = '0.85';
+    }
+
+    if (!state.textosWhatsAppCustomizados) {
+      state.textosWhatsAppCustomizados = {};
+    }
+    state.textosWhatsAppCustomizados[tabAtual] = valor;
+
+    // Persistência local no navegador
+    try {
+      localStorage.setItem('senaclube_textos_whatsapp', JSON.stringify(state.textosWhatsAppCustomizados));
+    } catch (e) {
+      console.warn('[SenaClube] Erro ao gravar localStorage:', e);
+    }
+
+    // Persistência no servidor / banco
+    const salvou = await salvarEstado();
+
+    const agora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    atualizarBadgeStatusMensagem('customizado', agora);
+
+    if (btnSalvar) {
+      btnSalvar.disabled = false;
+      btnSalvar.innerHTML = '✅ Modelo Salvo com Sucesso!';
+      btnSalvar.style.backgroundColor = '#10b981';
+      btnSalvar.style.borderColor = '#10b981';
+      btnSalvar.style.color = '#ffffff';
+
+      setTimeout(() => {
+        btnSalvar.innerHTML = originalHtml;
+        btnSalvar.style.backgroundColor = '';
+        btnSalvar.style.borderColor = '';
+        btnSalvar.style.color = '';
+      }, 3000);
+    }
+
+    mostrarNotificacaoToast(`💾 Modelo "${nomeAba}" salvo com sucesso!`);
+  };
+
+  // Função Global: Restaurar Modelo Padrão Automático
+  window.restaurarModeloWhatsApp = async function() {
+    const tabAtual = state.abaMensagemWhatsAppAtiva || 'boletim';
+    const nomeAba = getNomeAbaWhatsApp(tabAtual);
+
+    const confirmou = confirm(`Deseja restaurar o modelo "${nomeAba}" para o texto padrão automático?\n\nSuas alterações personalizadas nesta aba serão descartadas.`);
+    if (!confirmou) return;
+
+    const btnRestaurar = document.getElementById('btn-restaurar-texto-whatsapp');
+    const originalHtml = btnRestaurar ? btnRestaurar.innerHTML : '🔄 Restaurar Padrão';
+    if (btnRestaurar) {
+      btnRestaurar.disabled = true;
+      btnRestaurar.innerHTML = '⏳ Restaurando...';
+    }
+
+    if (state.textosWhatsAppCustomizados) {
+      delete state.textosWhatsAppCustomizados[tabAtual];
+      try {
+        localStorage.setItem('senaclube_textos_whatsapp', JSON.stringify(state.textosWhatsAppCustomizados));
+      } catch (e) {}
+    }
+
+    await salvarEstado();
+    atualizarTextoMensagemWhatsApp(true);
+
+    if (btnRestaurar) {
+      btnRestaurar.disabled = false;
+      btnRestaurar.innerHTML = originalHtml;
+    }
+
+    mostrarNotificacaoToast(`🔄 Modelo "${nomeAba}" restaurado para o padrão do sistema!`);
+  };
+
+  // Listeners de clique para os botões do modal de mensagens
+  document.getElementById('btn-salvar-texto-whatsapp')?.addEventListener('click', () => {
+    window.salvarModeloWhatsApp();
+  });
+
+  document.getElementById('btn-restaurar-texto-whatsapp')?.addEventListener('click', () => {
+    window.restaurarModeloWhatsApp();
+  });
+
+  // Atualiza em tempo real ao alterar qualquer campo dos parâmetros de comunicado (data, hora, pix)
+  ['msg-param-inicio-date', 'msg-param-encerramento-date', 'msg-param-encerramento-time', 'msg-param-pix'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      const handler = () => {
+        const tabAtual = state.abaMensagemWhatsAppAtiva || 'boletim';
+        const hasCustom = state.textosWhatsAppCustomizados && typeof state.textosWhatsAppCustomizados[tabAtual] === 'string' && state.textosWhatsAppCustomizados[tabAtual].trim() !== '';
+        if (!hasCustom) {
+          atualizarTextoMensagemWhatsApp(true);
+        } else {
+          const valDateInicio = document.getElementById('msg-param-inicio-date')?.value;
+          const valDateEncerramento = document.getElementById('msg-param-encerramento-date')?.value;
+          const valHoraEncerramento = document.getElementById('msg-param-encerramento-time')?.value || '20:00';
+          const badgeInicio = document.getElementById('badge-preview-inicio');
+          if (badgeInicio) badgeInicio.textContent = formatarDataSorteioExtenso(valDateInicio);
+          const badgeEncerramento = document.getElementById('badge-preview-encerramento');
+          if (badgeEncerramento) badgeEncerramento.textContent = formatarDataEncerramentoExtenso(valDateEncerramento, valHoraEncerramento);
+        }
+      };
+      el.addEventListener('input', handler);
+      el.addEventListener('change', handler);
+    }
   });
 
   document.getElementById('btn-modal-relatorio').addEventListener('click', () => {
+    // Sincroniza visual das abas com a abaMensagemWhatsAppAtiva
+    const tabAtual = state.abaMensagemWhatsAppAtiva || 'boletim';
+    document.querySelectorAll('.msg-tab-btn').forEach(b => {
+      if (b.getAttribute('data-msg-tab') === tabAtual) {
+        b.classList.add('active');
+      } else {
+        b.classList.remove('active');
+      }
+    });
     atualizarTextoMensagemWhatsApp();
     abrirModal('modal-relatorio');
   });
@@ -1875,7 +2198,7 @@ function renderModalHistoricoCiclos() {
           <span style="color: var(--text-muted); font-size: 0.8rem; margin-left: 8px;">Concursos ${primeiroConc} até ${ultimoConc}</span>
         </div>
         <span class="historico-tag ${c.status === 'ativo' ? 'ativo' : 'finalizado'}">
-          ${c.status === 'ativo' ? 'Ciclo em Andamento' : 'Finalizado'}
+          ${c.status === 'ativo' ? 'Edição em Andamento' : 'Finalizada'}
         </span>
       </div>
 
@@ -1891,10 +2214,10 @@ function renderModalHistoricoCiclos() {
 
       <div class="historico-card-actions" style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border-subtle); gap: 10px;">
         <button class="btn btn-sm ${c.id === state.cicloVisualizadoId ? 'btn-primary' : 'btn-secondary'} btn-visualizar-ciclo" data-ciclo-id="${c.id}">
-          ${c.id === state.cicloVisualizadoId ? '👁️ Ciclo em Exibição' : '📂 Abrir e Visualizar'}
+          ${c.id === state.cicloVisualizadoId ? '👁️ Edição em Exibição' : '📂 Abrir e Visualizar'}
         </button>
-        <button class="btn btn-sm btn-danger-outline btn-excluir-ciclo-hist admin-only" data-ciclo-id="${c.id}" title="Excluir este ciclo permanentemente">
-          🗑️ Excluir Ciclo
+        <button class="btn btn-sm btn-danger-outline btn-excluir-ciclo-hist admin-only" data-ciclo-id="${c.id}" title="Excluir esta edição permanentemente">
+          🗑️ Excluir Edição
         </button>
       </div>
     `;
@@ -1944,17 +2267,17 @@ function excluirCicloPorId(cicloId) {
 
   if (totalCiclos <= 1) {
     const confirmou = confirm(
-      `🗑️ EXCLUIR CICLO:\n\n` +
-      `Deseja realmente excluir o ${ciclo.nome} e reiniciar uma nova apuração?\n\n` +
-      `• O ciclo atual e todos os ${ciclo.concursos.length} sorteios apurados serão excluídos.\n` +
-      `• Todas as ${numApostas.toLocaleString('pt-BR')} apostas serão MANTIDAS (zeradas de acertos) prontas para um novo ciclo de apuração.\n\n` +
+      `🗑️ EXCLUIR EDIÇÃO:\n\n` +
+      `Deseja realmente excluir a ${ciclo.nome} e reiniciar uma nova apuração?\n\n` +
+      `• A edição atual e todos os ${ciclo.concursos.length} sorteios apurados serão excluídos.\n` +
+      `• Todas as ${numApostas.toLocaleString('pt-BR')} apostas serão MANTIDAS (zeradas de acertos) prontas para uma nova edição de apuração.\n\n` +
       `Confirmar exclusão e reiniciar apuração?`
     );
     if (!confirmou) return;
 
     state.ciclos = [{
       id: 1,
-      nome: 'Ciclo 1',
+      nome: 'Edição 1',
       status: 'ativo',
       concursoInicial: ciclo.concursoInicial || 3058,
       concursoFinal: null,
@@ -1977,15 +2300,15 @@ function excluirCicloPorId(cicloId) {
     fecharModal('modal-config');
     fecharModal('modal-historico-ciclos');
     renderApp();
-    alert(`🗑️ ${ciclo.nome} excluído! A apuração foi zerada e as ${apostasPreservadas.length.toLocaleString('pt-BR')} apostas foram preservadas com sucesso.`);
+    alert(`🗑️ ${ciclo.nome} excluída! A apuração foi zerada e as ${apostasPreservadas.length.toLocaleString('pt-BR')} apostas foram preservadas com sucesso.`);
     return;
   }
 
   // Se houver mais de um ciclo
   const confirmou = confirm(
-    `🗑️ EXCLUIR CICLO:\n\n` +
-    `Deseja realmente EXCLUIR o "${ciclo.nome}"?\n\n` +
-    `• Os sorteios e apurações deste ciclo serão excluídos.\n` +
+    `🗑️ EXCLUIR EDIÇÃO:\n\n` +
+    `Deseja realmente EXCLUIR a "${ciclo.nome}"?\n\n` +
+    `• Os sorteios e apurações desta edição serão excluídos.\n` +
     `• As apostas dos apostadores permanecerão preservadas e zeradas para uma nova apuração.\n\n` +
     `Confirmar exclusão?`
   );
@@ -2023,7 +2346,7 @@ function excluirCicloPorId(cicloId) {
   }
 
   renderApp();
-  alert(`🗑️ "${ciclo.nome}" excluído com sucesso! As apostas foram preservadas e zeradas para a nova apuração.`);
+  alert(`🗑️ "${ciclo.nome}" excluída com sucesso! As apostas foram preservadas e zeradas para a nova apuração.`);
 }
 
 // ==========================================================================
@@ -2050,7 +2373,7 @@ function iniciarNovoCicloAutomatico(concursoInicial) {
   });
 
   const novoId = Math.max(...state.ciclos.map(c => c.id), 0) + 1;
-  const novoNome = `Ciclo ${novoId}`;
+  const novoNome = `Edição ${novoId}`;
 
   // Copia todas as apostas do ciclo anterior mantendo jogos, zerando acertos e marcando como pendente
   const apostasBase = (ultimoCiclo && ultimoCiclo.apostas) ? ultimoCiclo.apostas.map(a => ({
@@ -2060,7 +2383,7 @@ function iniciarNovoCicloAutomatico(concursoInicial) {
     pago: false,
     confirmada: false,
     origem: 'mantida',
-    observacao: 'Renovado do ciclo anterior',
+    observacao: 'Renovado da edição anterior',
     criadoEm: new Date().toISOString()
   })) : [];
 
@@ -2098,7 +2421,7 @@ function iniciarNovoCicloAutomatico(concursoInicial) {
   fecharModal('modal-novo-ciclo');
   renderApp();
 
-  alert(`🎉 ${novoNome} iniciado com sucesso a partir do Concurso ${concNum}!\nTodas as ${apostasBase.length.toLocaleString('pt-BR')} apostas foram renovadas para a nova rodada.`);
+  alert(`🎉 ${novoNome} iniciada com sucesso a partir do Concurso ${concNum}!\nTodas as ${apostasBase.length.toLocaleString('pt-BR')} apostas foram renovadas para a nova rodada.`);
 }
 
 // ==========================================================================
@@ -2107,7 +2430,7 @@ function iniciarNovoCicloAutomatico(concursoInicial) {
 async function sincronizarProximoConcursoCaixa() {
   const ciclo = getCicloVisualizado();
   if (ciclo.status === 'finalizado') {
-    alert(`O ${ciclo.nome} já foi finalizado porque a Sena foi premiada!\nInicie o próximo ciclo para apurar novos sorteios.`);
+    alert(`A ${ciclo.nome} já foi finalizada porque a Sena foi premiada!\nInicie a próxima edição para apurar novos sorteios.`);
     return;
   }
   const btn = document.getElementById('btn-sync-caixa');
@@ -2140,9 +2463,9 @@ async function sincronizarProximoConcursoCaixa() {
     renderApp();
 
     if (ciclo.status === 'finalizado') {
-      mostrarNotificacaoToast(`🏆 Concurso ${dados.numero} apurado: Ganhador(es) da Sena identificado(s)! Ciclo encerrado.`);
+      mostrarNotificacaoToast(`🏆 Concurso ${dados.numero} apurado: Ganhador(es) da Sena identificado(s)! Edição encerrada.`);
     } else {
-      mostrarNotificacaoToast(`✅ Concurso ${dados.numero} apurado com sucesso no ${ciclo.nome}!`);
+      mostrarNotificacaoToast(`✅ Concurso ${dados.numero} apurado com sucesso na ${ciclo.nome}!`);
     }
   } catch (err) {
     alert(`Não foi possível buscar na Caixa automaticamente: ${err.message}.\nVocê pode inserir as dezenas manualmente pelo botão "Inserir Sorteio Manual".`);

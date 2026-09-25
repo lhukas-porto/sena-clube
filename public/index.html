@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Syne:wght@700;800&display=swap" rel="stylesheet">
   
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=2.6">
 </head>
 <body>
 
@@ -36,25 +36,25 @@
         </div>
       </div>
 
-      <!-- Navegação e Controle de Ciclos -->
+      <!-- Navegação e Controle de Edições -->
       <div class="ciclo-control-bar">
         <div class="ciclo-selector-wrap">
-          <label for="select-ciclo">Ciclo:</label>
+          <label for="select-ciclo">Edição:</label>
           <select id="select-ciclo" class="ciclo-select">
-            <!-- Opções de ciclos geradas dinamicamente -->
+            <!-- Opções de edições geradas dinamicamente -->
           </select>
         </div>
-        <button id="btn-modal-novo-ciclo" class="btn btn-sm btn-primary admin-only" title="Encerrar ciclo e iniciar o próximo">
-          + Novo Ciclo
+        <button id="btn-modal-novo-ciclo" class="btn btn-sm btn-primary admin-only" title="Encerrar edição e iniciar a próxima">
+          + Nova Edição
         </button>
-        <button id="btn-modal-historico-ciclos" class="btn btn-sm btn-secondary" title="Ver memória de ciclos anteriores">
+        <button id="btn-modal-historico-ciclos" class="btn btn-sm btn-secondary" title="Ver memória de edições anteriores">
           📜 Histórico
         </button>
       </div>
 
       <div class="header-status">
         <div class="status-card" id="status-concurso-card">
-          <span class="label">Ciclo Atual</span>
+          <span class="label">Edição Atual</span>
           <strong id="header-ciclo-info">Iniciando...</strong>
           <small id="header-concursos-badge">0 sorteios apurados</small>
         </div>
@@ -77,19 +77,19 @@
   <!-- Main Container -->
   <main class="main-content">
 
-    <!-- Banner de Ciclo Encerrado (Sena Premiada) -->
+    <!-- Banner de Edição Encerrada (Sena Premiada) -->
     <div id="banner-ciclo-encerrado" class="banner-encerrado admin-only hidden">
       <div class="banner-encerrado-content">
         <span class="banner-icon">🏆</span>
         <div>
-          <strong id="banner-encerrado-titulo">Este ciclo foi encerrado com ganhador(es) da Sena!</strong>
-          <p id="banner-encerrado-sub">Para abrir a próxima rodada com todos os participantes, informe apenas o concurso inicial:</p>
+          <strong id="banner-encerrado-titulo">Esta edição foi encerrada com ganhador(es) da Sena!</strong>
+          <p id="banner-encerrado-sub">Para abrir a próxima edição com todos os participantes, informe apenas o concurso inicial:</p>
         </div>
       </div>
       <form id="form-banner-quick-ciclo" class="banner-quick-form admin-only">
         <input type="number" id="banner-quick-concurso" placeholder="Ex: 3061" required>
         <button type="submit" class="btn btn-primary" id="btn-banner-quick-submit">
-          🚀 Iniciar Novo Ciclo
+          🚀 Iniciar Nova Edição
         </button>
       </form>
     </div>
@@ -150,7 +150,7 @@
       <div class="section-header-compact">
         <div class="title-with-icon">
           <span class="icon">🎲</span>
-          <h3 id="titulo-historico-ciclo">Sorteios Realizados no Ciclo Atual</h3>
+          <h3 id="titulo-historico-ciclo">Sorteios Realizados na Edição Atual</h3>
         </div>
         <div class="concursos-actions admin-only">
           <button id="btn-sync-caixa" class="btn btn-primary" title="Busca o próximo concurso na API oficial">
@@ -251,21 +251,21 @@
 
   <!-- ==================== MODAIS ==================== -->
 
-  <!-- Modal: Iniciar Novo Ciclo -->
+  <!-- Modal: Iniciar Nova Edição -->
   <div id="modal-novo-ciclo" class="modal-overlay hidden">
     <div class="modal-card">
       <div class="modal-header">
-        <h3>Iniciar Novo Ciclo de Bolão</h3>
+        <h3>Iniciar Nova Edição de Bolão</h3>
         <button class="modal-close" data-close="modal-novo-ciclo">&times;</button>
       </div>
       <form id="form-novo-ciclo">
         <p class="modal-desc">
-          O ciclo atual será arquivado no <strong>Histórico de Memória</strong> com todos os seus sorteios, dezenas e vencedores.
+          A edição atual será arquivada no <strong>Histórico de Memória</strong> com todos os seus sorteios, dezenas e vencedores.
         </p>
 
         <div class="form-group">
-          <label for="novo-ciclo-nome">Nome / Identificação do Ciclo</label>
-          <input type="text" id="novo-ciclo-nome" placeholder="Ex: Ciclo 2" required>
+          <label for="novo-ciclo-nome">Nome / Identificação da Edição</label>
+          <input type="text" id="novo-ciclo-nome" placeholder="Ex: Edição 2" required>
         </div>
 
         <div class="form-row">
@@ -291,7 +291,7 @@
         <div class="form-group">
           <label class="checkbox-label" style="margin-top: 6px;">
             <input type="checkbox" id="novo-ciclo-copiar-apostas" checked>
-            Copiar participantes e jogos do ciclo anterior como base (com status <strong>Pendente</strong>)
+            Copiar participantes e jogos da edição anterior como base (com status <strong>Pendente</strong>)
           </label>
           <small class="form-hint">
             Ao receber mensagens novas no WhatsApp, o comparador identificará jogos mantidos, novos números e participantes que desistiram!
@@ -300,25 +300,25 @@
 
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-close="modal-novo-ciclo">Cancelar</button>
-          <button type="submit" class="btn btn-primary">Abrir Novo Ciclo</button>
+          <button type="submit" class="btn btn-primary">Abrir Nova Edição</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- Modal: Histórico de Ciclos Gravados -->
+  <!-- Modal: Histórico de Edições Gravadas -->
   <div id="modal-historico-ciclos" class="modal-overlay hidden">
     <div class="modal-card modal-lg">
       <div class="modal-header">
         <div class="modal-title-wrap">
           <span style="font-size: 1.4rem;">📜</span>
-          <h3>Histórico & Memória de Ciclos</h3>
+          <h3>Histórico & Memória de Edições</h3>
         </div>
         <button class="modal-close" data-close="modal-historico-ciclos">&times;</button>
       </div>
       <div class="modal-body">
         <p class="modal-desc">
-          Consulte o registro completo de cada ciclo realizado: concursos apurados, vencedores da Sena, prêmio da Quadra e prestação de contas.
+          Consulte o registro completo de cada edição realizada: concursos apurados, vencedores da Sena, prêmio da Quadra e prestação de contas.
         </p>
 
         <div id="historico-ciclos-container" class="historico-ciclos-container"></div>
@@ -426,7 +426,7 @@
   <div id="modal-sorteio" class="modal-overlay hidden">
     <div class="modal-card">
       <div class="modal-header">
-        <h3 id="modal-sorteio-title">Adicionar Sorteio ao Ciclo</h3>
+        <h3 id="modal-sorteio-title">Adicionar Sorteio à Edição</h3>
         <button class="modal-close" data-close="modal-sorteio">&times;</button>
       </div>
       <form id="form-sorteio">
@@ -479,7 +479,7 @@
 
           <div class="form-row">
             <div class="form-group">
-              <label for="config-concurso-inicial">Concurso Inicial do Ciclo *</label>
+              <label for="config-concurso-inicial">Concurso Inicial da Edição *</label>
               <input type="number" id="config-concurso-inicial" placeholder="Ex: 3058" required>
             </div>
             <div class="form-group">
@@ -508,27 +508,27 @@
             <h4>⚠️ Zona de Reinicialização & Manutenção</h4>
             <div class="danger-zone-grid">
               <div class="danger-item">
-                <p>Importar / copiar todas as apostas do ciclo imediatamente anterior para este ciclo:</p>
+                <p>Importar / copiar todas as apostas da edição imediatamente anterior para esta edição:</p>
                 <button type="button" id="btn-copiar-apostas-anterior" class="btn btn-sm btn-outline">
-                  📋 Copiar Apostas do Ciclo Anterior
+                  📋 Copiar Apostas da Edição Anterior
                 </button>
               </div>
               <div class="danger-item">
-                <p>Zerar os sorteios apurados do ciclo atual (mantendo participantes e cotas):</p>
+                <p>Zerar os sorteios apurados da edição atual (mantendo participantes e cotas):</p>
                 <button type="button" id="btn-zerar-ciclo" class="btn btn-sm btn-danger-outline">
                   🔄 Reiniciar Sorteios
                 </button>
               </div>
               <div class="danger-item">
-                <p>Excluir permanentemente todas as apostas cadastradas deste ciclo:</p>
+                <p>Excluir permanentemente todas as apostas cadastradas desta edição:</p>
                 <button type="button" id="btn-excluir-todas-apostas" class="btn btn-sm btn-danger-outline">
                   🗑️ Excluir Apostas
                 </button>
               </div>
               <div class="danger-item">
-                <p>Excluir este ciclo (zerando sorteios e mantendo apostadores para nova apuração):</p>
+                <p>Excluir esta edição (zerando sorteios e mantendo apostadores para nova apuração):</p>
                 <button type="button" id="btn-excluir-ciclo-atual" class="btn btn-sm btn-danger">
-                  💣 Excluir Ciclo
+                  💣 Excluir Edição
                 </button>
               </div>
             </div>
@@ -564,37 +564,67 @@
           <button type="button" class="finalizar-tab-btn msg-tab-btn" data-msg-tab="lembrete-fechamento">
             ⏰ Lembrete de Encerramento
           </button>
+          <button type="button" class="finalizar-tab-btn msg-tab-btn" data-msg-tab="convite-completo">
+            🍀 Convite Explicativo
+          </button>
+          <button type="button" class="finalizar-tab-btn msg-tab-btn" data-msg-tab="convite-rapido">
+            ⚡ Convite Rápido
+          </button>
         </div>
 
         <!-- Painel de Customização de Datas / Chave Pix -->
-        <div id="msg-custom-params" class="hidden" style="background: var(--bg-surface-elevated); padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); margin-bottom: 12px;">
-          <div class="form-row" style="margin-bottom: 0;">
+        <div id="msg-custom-params" class="hidden" style="background: var(--bg-surface-elevated); padding: 14px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); margin-bottom: 14px;">
+          <div class="form-row" style="margin-bottom: 0; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px;">
             <div class="form-group" style="margin-bottom: 0;">
-              <label for="msg-param-inicio" style="font-size: 0.75rem;">Data do 1º Sorteio</label>
-              <input type="text" id="msg-param-inicio" placeholder="Ex: Terça-feira (06/10)" value="Terça-feira (06/10)" style="font-size: 0.85rem; padding: 6px 10px;">
+              <label for="msg-param-inicio-date" style="font-size: 0.75rem; display: flex; align-items: center; justify-content: space-between;">
+                <span>📅 Data do 1º Sorteio</span>
+                <span id="badge-preview-inicio" class="tag" style="font-size: 0.68rem; padding: 2px 6px; background: rgba(16, 185, 129, 0.15); color: var(--emerald-primary); border: 1px solid rgba(16, 185, 129, 0.3);"></span>
+              </label>
+              <input type="date" id="msg-param-inicio-date" style="font-size: 0.85rem; padding: 7px 10px;" onclick="this.showPicker && this.showPicker()">
             </div>
             <div class="form-group" style="margin-bottom: 0;">
-              <label for="msg-param-encerramento" style="font-size: 0.75rem;">Encerramento das Apostas</label>
-              <input type="text" id="msg-param-encerramento" placeholder="Ex: Domingo (04/10) até as 20h" value="Domingo (04/10) até as 20h" style="font-size: 0.85rem; padding: 6px 10px;">
+              <label for="msg-param-encerramento-date" style="font-size: 0.75rem; display: flex; align-items: center; justify-content: space-between;">
+                <span>⏰ Encerramento das Apostas</span>
+                <span id="badge-preview-encerramento" class="tag" style="font-size: 0.68rem; padding: 2px 6px; background: rgba(16, 185, 129, 0.15); color: var(--emerald-primary); border: 1px solid rgba(16, 185, 129, 0.3);"></span>
+              </label>
+              <div style="display: flex; gap: 6px;">
+                <input type="date" id="msg-param-encerramento-date" style="font-size: 0.85rem; padding: 7px 8px; flex: 1.6;" title="Clique para abrir o calendário" onclick="this.showPicker && this.showPicker()">
+                <input type="time" id="msg-param-encerramento-time" value="20:00" style="font-size: 0.85rem; padding: 7px 6px; flex: 1;" title="Horário limite" onclick="this.showPicker && this.showPicker()">
+              </div>
             </div>
             <div class="form-group" style="margin-bottom: 0;">
-              <label for="msg-param-pix" style="font-size: 0.75rem;">Chave Pix (Opcional)</label>
-              <input type="text" id="msg-param-pix" placeholder="Ex: telefone / e-mail / CPF" style="font-size: 0.85rem; padding: 6px 10px;">
+              <label for="msg-param-pix" style="font-size: 0.75rem;">🔑 Chave Pix (Opcional)</label>
+              <input type="text" id="msg-param-pix" placeholder="Ex: telefone / e-mail / CPF" style="font-size: 0.85rem; padding: 7px 10px;">
             </div>
           </div>
         </div>
 
-        <p class="modal-desc" id="msg-tab-desc">
-          Texto já formatado com o ranking de acertos, premiação líquida da sena e da quadra (sem dados brutos ou taxas).
-        </p>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+          <p class="modal-desc" id="msg-tab-desc" style="margin-bottom: 0;">
+            Texto já formatado com o ranking de acertos, premiação líquida da sena e da quadra (sem dados brutos ou taxas).
+          </p>
+          <span id="badge-msg-custom-status" style="font-size: 0.72rem; padding: 3px 8px; border-radius: 4px; background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); font-weight: 500; display: inline-flex; align-items: center; gap: 4px;">
+            ✨ Modelo Automático
+          </span>
+        </div>
 
-        <textarea id="relatorio-whatsapp-text" class="relatorio-textarea" readonly rows="12"></textarea>
+        <textarea id="relatorio-whatsapp-text" class="relatorio-textarea" rows="13" placeholder="Digite ou ajuste o texto da mensagem à vontade..."></textarea>
       </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-close="modal-relatorio">Fechar</button>
-        <button type="button" id="btn-copiar-relatorio" class="btn btn-whatsapp">
-          📋 Copiar Texto Completo
-        </button>
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button type="button" id="btn-salvar-texto-whatsapp" onclick="salvarModeloWhatsApp()" class="btn btn-primary" title="Salvar as alterações deste modelo para usar sempre que abrir esta aba" style="transition: all 0.3s ease;">
+            💾 Salvar Este Modelo
+          </button>
+          <button type="button" id="btn-restaurar-texto-whatsapp" onclick="restaurarModeloWhatsApp()" class="btn btn-secondary" title="Descartar personalizações e voltar ao modelo padrão automático" style="transition: all 0.3s ease;">
+            🔄 Restaurar Padrão
+          </button>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button type="button" class="btn btn-secondary" data-close="modal-relatorio">Fechar</button>
+          <button type="button" id="btn-copiar-relatorio" class="btn btn-whatsapp">
+            📋 Copiar Texto
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -631,7 +661,7 @@
             <div class="pdf-option-content">
               <div class="pdf-option-header">
                 <span class="pdf-option-icon">📊</span>
-                <strong>Boletim Sintético de 1 Página (Resumo do Ciclo)</strong>
+                <strong>Boletim Sintético de 1 Página (Resumo da Edição)</strong>
               </div>
               <p>Resumo executivo projetado para caber exatamente em 1 página A4 com os sorteios, premiações, financeiro e os 40 maiores líderes.</p>
             </div>
@@ -680,7 +710,7 @@
     <div class="modal-card modal-celebration">
       <div class="celebration-animation">🎯 🎉 ✨</div>
       <h2>QUADRA NO 1º SORTEIO!</h2>
-      <p class="celebration-sub">Regra Especial Ativada: Ganhador(es) da Quadra na abertura do ciclo!</p>
+      <p class="celebration-sub">Regra Especial Ativada: Ganhador(es) da Quadra na abertura da edição!</p>
       
       <div id="quadra-ganhadores-list" class="celebration-list"></div>
 
@@ -703,36 +733,36 @@
 
       <div class="modal-footer center" style="margin-top: 20px;">
         <button type="button" class="btn btn-primary btn-lg" data-close="modal-sena">
-          Visualizar Apuração do Ciclo Encerrado
+          Visualizar Apuração da Edição Encerrada
         </button>
       </div>
     </div>
   </div>
 
-  <!-- Modal: Finalizar Apostas do Ciclo & Resumo de Fechamento -->
+  <!-- Modal: Finalizar Apostas da Edição & Resumo de Fechamento -->
   <div id="modal-finalizar-apostas" class="modal-overlay hidden">
     <div class="modal-card modal-lg">
       <div class="modal-header">
         <div class="modal-title-wrap">
           <span style="font-size: 1.4rem;">🔒</span>
-          <h3 id="modal-finalizar-title">Finalizar Apostas do Ciclo</h3>
+          <h3 id="modal-finalizar-title">Finalizar Apostas da Edição</h3>
         </div>
         <button class="modal-close" data-close="modal-finalizar-apostas">&times;</button>
       </div>
 
       <div class="modal-body">
         <p class="modal-desc" id="modal-finalizar-desc">
-          Encerre o período de inscrições/renovações. As apostas <strong>não confirmadas</strong> serão identificadas e excluídas deste ciclo, garantindo que apenas apostas ativas e pagas concorram nos sorteios!
+          Encerre o período de inscrições/renovações. As apostas <strong>não confirmadas</strong> serão identificadas e excluídas desta edição, garantindo que apenas apostas ativas e pagas concorram nos sorteios!
         </p>
 
-        <!-- 3 Cards de Resumo do Ciclo -->
+        <!-- 3 Cards de Resumo da Edição -->
         <div class="finalizar-summary-grid">
           <div class="finalizar-stat-card card-mantidas">
             <span class="stat-icon">✅</span>
             <div class="stat-content">
               <span class="stat-label">Mantidas & Confirmadas</span>
               <strong class="stat-value" id="finalizar-total-mantidas">0</strong>
-              <small class="stat-sub">Jogos iguais ao ciclo anterior</small>
+              <small class="stat-sub">Jogos iguais à edição anterior</small>
             </div>
           </div>
 
@@ -750,7 +780,7 @@
             <div class="stat-content">
               <span class="stat-label">Não Computadas (Desistentes)</span>
               <strong class="stat-value" id="finalizar-total-desistentes">0</strong>
-              <small class="stat-sub">Não confirmaram neste ciclo</small>
+              <small class="stat-sub">Não confirmaram nesta edição</small>
             </div>
           </div>
         </div>
@@ -799,7 +829,7 @@
           <div>
             <strong>Atenção ao Fechamento:</strong>
             <p id="finalizar-warning-text">
-              Ao confirmar, todas as apostas marcadas como desistentes serão removidas deste ciclo. As próximas rodadas e o ciclo seguinte utilizarão apenas as apostas confirmadas.
+              Ao confirmar, todas as apostas marcadas como desistentes serão removidas desta edição. As próximas rodadas e a edição seguinte utilizarão apenas as apostas confirmadas.
             </p>
           </div>
         </div>
@@ -810,7 +840,7 @@
           <div>
             <strong>Apostas Travadas Permanentemente:</strong>
             <p style="margin: 0; font-size: 0.82rem; color: #fca5a5;">
-              As apostas deste ciclo estão encerradas e blindadas. Em conformidade com a regra de integridade, <strong>nenhuma aposta pode ser adicionada, alterada ou excluída</strong>, nem mesmo pelo administrador.
+              As apostas desta edição estão encerradas e blindadas. Em conformidade com a regra de integridade, <strong>nenhuma aposta pode ser adicionada, alterada ou excluída</strong>, nem mesmo pelo administrador.
             </p>
           </div>
         </div>
@@ -870,10 +900,10 @@
   </div>
 
   <!-- Scripts Modulares -->
-  <script src="js/caixa-api.js?v=2.5"></script>
-  <script src="js/whatsapp-parser.js?v=2.5"></script>
-  <script src="js/bolao-engine.js?v=2.5"></script>
-  <script src="js/export-share.js?v=2.5"></script>
-  <script src="js/app.js?v=2.5"></script>
+  <script src="js/caixa-api.js?v=3.6"></script>
+  <script src="js/whatsapp-parser.js?v=3.6"></script>
+  <script src="js/bolao-engine.js?v=3.6"></script>
+  <script src="js/export-share.js?v=3.6"></script>
+  <script src="js/app.js?v=3.6"></script>
 </body>
 </html>
