@@ -69,6 +69,11 @@
   padding: 0;
 }
 
+html, body {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
 body {
   font-family: var(--font-body);
   background-color: var(--bg-main);
@@ -2172,10 +2177,126 @@ body:not(.is-admin) .admin-only {
   flex-shrink: 0;
 }
 
-@media (max-width: 992px) {
+/* ==========================================================================
+   Responsividade para Telas Médias e Menores de Computador (Laptops 1366px, 1280px, etc.)
+   ========================================================================== */
+@media (max-width: 1400px) {
+  .app-header {
+    padding: 10px 18px;
+  }
+
+  .header-container {
+    gap: 10px;
+  }
+
+  .brand {
+    gap: 10px;
+  }
+
+  .brand-badge {
+    width: 38px;
+    height: 38px;
+  }
+
+  .clover-icon {
+    font-size: 20px;
+  }
+
+  .brand-text h1 {
+    font-size: 1.35rem;
+  }
+
+  /* Oculta o subtítulo descritivo longo para manter tudo em uma linha única e elegante */
+  .brand-text p {
+    display: none;
+  }
+
+  .brand-bolao-tag {
+    padding: 2px 8px;
+    font-size: 0.74rem;
+    margin-top: 2px;
+  }
+
+  .ciclo-control-bar {
+    padding: 4px 8px;
+    gap: 6px;
+  }
+
+  .ciclo-selector-wrap label {
+    font-size: 0.7rem;
+  }
+
+  .ciclo-select {
+    padding: 4px 8px;
+    font-size: 0.8rem;
+    max-width: 155px;
+  }
+
+  .ciclo-control-bar .btn {
+    padding: 4px 8px;
+    font-size: 0.78rem;
+  }
+
+  .header-status {
+    gap: 8px;
+  }
+
+  .status-card {
+    padding: 4px 8px;
+    min-width: 105px;
+  }
+
+  .status-card .label {
+    font-size: 0.62rem;
+  }
+
+  .status-card strong {
+    font-size: 0.82rem;
+  }
+
+  .status-card small {
+    font-size: 0.65rem;
+  }
+
+  .header-admin-badge {
+    padding: 4px 10px;
+    gap: 6px;
+  }
+
+  .admin-badge-text {
+    font-size: 0.74rem;
+  }
+
+  .btn-logout-admin {
+    padding: 2px 6px;
+    font-size: 0.68rem;
+  }
+
+  .main-content {
+    padding: 16px;
+    gap: 14px;
+  }
+
+  .kpi-grid {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+  }
+
+  .kpi-card {
+    padding: 12px 14px;
+    gap: 10px;
+  }
+
+  .search-box {
+    min-width: 200px;
+  }
+}
+
+@media (max-width: 1100px) {
   .header-container {
     flex-wrap: wrap;
-    gap: 12px;
+    gap: 10px;
+    justify-content: space-between;
   }
 }
 
