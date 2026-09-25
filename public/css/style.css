@@ -1021,6 +1021,17 @@ body {
   box-shadow: 0 0 15px var(--emerald-glow);
 }
 
+.btn:disabled,
+.btn.disabled,
+#btn-modal-novo-ciclo:disabled,
+#btn-modal-novo-ciclo.disabled {
+  opacity: 0.45 !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+  transform: none !important;
+  filter: grayscale(0.5);
+}
+
 .btn-secondary {
   background: var(--bg-surface-elevated);
   border: 1px solid var(--border-subtle);

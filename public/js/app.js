@@ -501,6 +501,28 @@ function renderCicloBar() {
     if (c.id === state.cicloVisualizadoId) opt.selected = true;
     select.appendChild(opt);
   });
+
+  // O botão '+ Nova Edição' só fica ativo quando a edição anterior for finalizada
+  const btnNovoCiclo = document.getElementById('btn-modal-novo-ciclo');
+  if (btnNovoCiclo) {
+    const ultimaEdicao = state.ciclos[state.ciclos.length - 1];
+    const finalizada = ultimaEdicao ? ultimaEdicao.status === 'finalizado' : false;
+
+    if (finalizada) {
+      btnNovoCiclo.disabled = false;
+      btnNovoCiclo.classList.remove('disabled');
+      btnNovoCiclo.style.opacity = '1';
+      btnNovoCiclo.style.cursor = 'pointer';
+      btnNovoCiclo.title = 'A edição anterior foi finalizada. Clique para iniciar a próxima edição.';
+    } else {
+      btnNovoCiclo.disabled = true;
+      btnNovoCiclo.classList.add('disabled');
+      btnNovoCiclo.style.opacity = '0.45';
+      btnNovoCiclo.style.cursor = 'not-allowed';
+      const nomeUltima = ultimaEdicao ? (ultimaEdicao.nome || 'Edição atual') : 'Edição atual';
+      btnNovoCiclo.title = `🔒 A ${nomeUltima} ainda está em andamento. Este botão só fica ativo quando a edição anterior for finalizada.`;
+    }
+  }
 }
 
 function renderHeader(ciclo, financeiro, concursosApuracao) {
@@ -1087,8 +1109,14 @@ function setupEventListeners() {
   });
 
   // Modal Novo Ciclo
-  document.getElementById('btn-modal-novo-ciclo').addEventListener('click', () => {
+  document.getElementById('btn-modal-novo-ciclo').addEventListener('click', (e) => {
     const ultimoCiclo = state.ciclos[state.ciclos.length - 1] || getCicloVisualizado();
+    if (ultimoCiclo && ultimoCiclo.status !== 'finalizado') {
+      e.preventDefault();
+      alert(`🔒 Ação Bloqueada:\n\nA ${ultimoCiclo.nome} ainda está em andamento!\n\nConforme as regras do SenaClube, o botão "+ Nova Edição" só fica ativo quando a edição anterior for oficialmente finalizada (após a premiação da Sena).`);
+      return;
+    }
+
     let proximoConcurso = 3060;
     if (ultimoCiclo.concursos && ultimoCiclo.concursos.length > 0) {
       proximoConcurso = ultimoCiclo.concursos[ultimoCiclo.concursos.length - 1].numero + 1;
