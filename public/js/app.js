@@ -2202,51 +2202,24 @@ function setupEventListeners() {
 
   function atualizarBadgeStatusMensagem(status, horaSalvamento = null) {
     const badge = document.getElementById('badge-msg-custom-status');
-    const btnRestaurar = document.getElementById('btn-restaurar-texto-whatsapp');
-    const tabAtual = state.abaMensagemWhatsAppAtiva || 'boletim';
-
-    // Regra explícita: Na aba de abertura de novo bolão, o botão "Restaurar Padrão" NUNCA é exibido
-    if (btnRestaurar) {
-      if (tabAtual === 'abertura-padrao') {
-        btnRestaurar.style.display = 'none';
-      } else {
-        btnRestaurar.style.display = 'inline-flex';
-      }
-    }
-
     if (!badge) return;
 
     if (status === 'customizado') {
       const horaTexto = horaSalvamento ? ` às ${horaSalvamento}` : '';
-      badge.innerHTML = `💾 Modelo Personalizado Salvo${horaTexto}`;
+      badge.innerHTML = `💾 Modelo Padrão Salvo${horaTexto}`;
       badge.style.background = 'rgba(16, 185, 129, 0.2)';
       badge.style.color = '#10b981';
       badge.style.borderColor = 'rgba(16, 185, 129, 0.5)';
-      if (btnRestaurar && tabAtual !== 'abertura-padrao') {
-        btnRestaurar.disabled = false;
-        btnRestaurar.style.opacity = '1';
-        btnRestaurar.style.cursor = 'pointer';
-      }
     } else if (status === 'editado') {
       badge.innerHTML = '✏️ Alterações Não Salvas (Clique em "Salvar")';
       badge.style.background = 'rgba(245, 158, 11, 0.2)';
       badge.style.color = '#f59e0b';
       badge.style.borderColor = 'rgba(245, 158, 11, 0.5)';
-      if (btnRestaurar && tabAtual !== 'abertura-padrao') {
-        btnRestaurar.disabled = false;
-        btnRestaurar.style.opacity = '1';
-        btnRestaurar.style.cursor = 'pointer';
-      }
     } else {
-      badge.innerHTML = '✨ Modelo Automático';
+      badge.innerHTML = '✨ Modelo Ativo';
       badge.style.background = 'rgba(59, 130, 246, 0.15)';
       badge.style.color = '#60a5fa';
       badge.style.borderColor = 'rgba(59, 130, 246, 0.3)';
-      if (btnRestaurar && tabAtual !== 'abertura-padrao') {
-        btnRestaurar.disabled = true;
-        btnRestaurar.style.opacity = '0.45';
-        btnRestaurar.style.cursor = 'not-allowed';
-      }
     }
   }
 
@@ -2504,49 +2477,12 @@ function setupEventListeners() {
       }, 3000);
     }
 
-    mostrarNotificacaoToast(`💾 Modelo "${nomeAba}" salvo com sucesso!`);
-  };
-
-  // Função Global: Restaurar Modelo Padrão Automático
-  window.restaurarModeloWhatsApp = async function() {
-    const tabAtual = state.abaMensagemWhatsAppAtiva || 'boletim';
-    const nomeAba = getNomeAbaWhatsApp(tabAtual);
-
-    const confirmou = confirm(`Deseja restaurar o modelo "${nomeAba}" para o texto padrão automático?\n\nSuas alterações personalizadas nesta aba serão descartadas.`);
-    if (!confirmou) return;
-
-    const btnRestaurar = document.getElementById('btn-restaurar-texto-whatsapp');
-    const originalHtml = btnRestaurar ? btnRestaurar.innerHTML : '🔄 Restaurar Padrão';
-    if (btnRestaurar) {
-      btnRestaurar.disabled = true;
-      btnRestaurar.innerHTML = '⏳ Restaurando...';
-    }
-
-    if (state.textosWhatsAppCustomizados) {
-      delete state.textosWhatsAppCustomizados[tabAtual];
-      try {
-        localStorage.setItem('senaclube_textos_whatsapp', JSON.stringify(state.textosWhatsAppCustomizados));
-      } catch (e) {}
-    }
-
-    await salvarEstado();
-    atualizarTextoMensagemWhatsApp(true);
-
-    if (btnRestaurar) {
-      btnRestaurar.disabled = false;
-      btnRestaurar.innerHTML = originalHtml;
-    }
-
-    mostrarNotificacaoToast(`🔄 Modelo "${nomeAba}" restaurado para o padrão do sistema!`);
+    mostrarNotificacaoToast(`💾 Modelo "${nomeAba}" salvo como novo padrão!`);
   };
 
   // Listeners de clique para os botões do modal de mensagens
   document.getElementById('btn-salvar-texto-whatsapp')?.addEventListener('click', () => {
     window.salvarModeloWhatsApp();
-  });
-
-  document.getElementById('btn-restaurar-texto-whatsapp')?.addEventListener('click', () => {
-    window.restaurarModeloWhatsApp();
   });
 
   // Atualiza em tempo real ao alterar qualquer campo dos parâmetros de comunicado (data, hora, pix)
