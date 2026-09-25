@@ -2720,7 +2720,8 @@ body.is-admin .historico-meta-grid {
 /* ==========================================================================
    Modo Administrador vs Modo Consulta Pública
    ========================================================================== */
-body:not(.is-admin) .admin-only {
+body:not(.is-admin) .admin-only,
+body:not(.is-admin) .badge-origem {
   display: none !important;
 }
 

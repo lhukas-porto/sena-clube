@@ -829,11 +829,13 @@ function renderTabelaApostas(ciclo, apuracao) {
       ? `<button class="payment-toggle pago" onclick="togglePagamentoAposta('${aposta.id}')" ${isBloqueado ? 'disabled' : ''} title="${isBloqueado ? 'Apostas fechadas (bloqueado contra alterações)' : 'Aposta confirmada'}">✅ Confirmada</button>`
       : `<button class="payment-toggle pendente" onclick="togglePagamentoAposta('${aposta.id}')" ${isBloqueado ? 'disabled' : ''} title="${isBloqueado ? 'Apostas fechadas (bloqueado contra alterações)' : 'Aguardando confirmação'}">⏳ Aguardando</button>`;
 
-    const origemBadge = aposta.origem === 'nova' 
-      ? `<span class="badge-origem nova" title="Novo participante">Nova</span>`
-      : aposta.origem === 'alterada'
-      ? `<span class="badge-origem alterada" title="Números alterados">Alterada</span>`
-      : `<span class="badge-origem mantida" title="Jogo mantido da edição anterior">Mantida</span>`;
+    const origemBadge = state.isAdmin ? (
+      aposta.origem === 'nova' 
+        ? `<span class="badge-origem nova admin-only" title="Novo participante">Nova</span>`
+        : aposta.origem === 'alterada'
+        ? `<span class="badge-origem alterada admin-only" title="Números alterados">Alterada</span>`
+        : `<span class="badge-origem mantida admin-only" title="Jogo mantido da edição anterior">Mantida</span>`
+    ) : '';
 
     const isCampeao = aposta.totalAcertos >= 6;
     const campeaoTag = isCampeao ? `<div class="campeao-slot"><span class="badge-campeao-sena">🏆 CAMPEÃO</span></div>` : '';
