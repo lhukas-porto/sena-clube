@@ -11,6 +11,8 @@ const state = {
   taxaOrganizadorGlobal: 0.20,
   cicloVisualizadoId: 1,
   ciclos: [],
+  chavePix: '(61) 99627-2630',
+  linkGrupoWhatsApp: 'https://chat.whatsapp.com/KT4gbhyKUUrBqW9fU2ZGpv',
   textosWhatsAppCustomizados: {},
   abaMensagemWhatsAppAtiva: 'boletim',
   filtroAtual: 'todos',
@@ -34,17 +36,28 @@ try {
 // Helpers de Ciclo
 function getCicloVisualizado() {
   if (!state.ciclos || state.ciclos.length === 0) {
-    return {
+    const defaultCiclo = {
       id: 1,
       nome: 'Edição 1',
       status: 'ativo',
-      concursoInicial: 3058,
-      valorCota: 24.0,
-      taxaOrganizador: 0.20,
+      concursoInicial: 3064,
+      concursoFinal: null,
+      valorCota: 30.0,
+      taxaOrganizador: state.taxaOrganizadorGlobal || 0.20,
       premioQuadra: 0.0,
       concursos: [],
-      apostas: []
+      apostas: [],
+      apostasDescartadas: [],
+      faseApostas: 'aberta',
+      alertasExibidos: { quadraCicloId: null, senaCicloId: null },
+      ganhadorSenaNome: null,
+      ganhadorQuadraNome: null,
+      criadoEm: new Date().toISOString(),
+      finalizadoEm: null
     };
+    state.ciclos = [defaultCiclo];
+    state.cicloVisualizadoId = 1;
+    return defaultCiclo;
   }
   return state.ciclos.find(c => c.id === state.cicloVisualizadoId) || state.ciclos[state.ciclos.length - 1];
 }
@@ -85,11 +98,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Persistência
 // ==========================================================================
 async function salvarEstado() {
+  // Garante que o ciclo ativo sempre existe no array global
+  getCicloVisualizado();
+
   const payload = {
     nomeBolao: state.nomeBolao,
     taxaOrganizadorGlobal: state.taxaOrganizadorGlobal,
     cicloVisualizadoId: state.cicloVisualizadoId,
     ciclos: state.ciclos,
+    chavePix: state.chavePix || '(61) 99627-2630',
+    linkGrupoWhatsApp: state.linkGrupoWhatsApp || 'https://chat.whatsapp.com/KT4gbhyKUUrBqW9fU2ZGpv',
     textosWhatsAppCustomizados: state.textosWhatsAppCustomizados || {}
   };
 
@@ -126,6 +144,8 @@ async function carregarEstado() {
       if (data && typeof data === 'object') {
         if (data.nomeBolao) state.nomeBolao = data.nomeBolao;
         if (typeof data.taxaOrganizadorGlobal === 'number') state.taxaOrganizadorGlobal = data.taxaOrganizadorGlobal;
+        if (data.chavePix) state.chavePix = data.chavePix;
+        if (data.linkGrupoWhatsApp) state.linkGrupoWhatsApp = data.linkGrupoWhatsApp;
         if (data.textosWhatsAppCustomizados && typeof data.textosWhatsAppCustomizados === 'object') {
           state.textosWhatsAppCustomizados = Object.assign({}, state.textosWhatsAppCustomizados, data.textosWhatsAppCustomizados);
           try {
@@ -137,17 +157,20 @@ async function carregarEstado() {
             if (c.nome && /^ciclo\s*\d+/i.test(c.nome)) {
               c.nome = c.nome.replace(/^ciclo/i, 'Edição');
             }
+            if (!Array.isArray(c.apostas)) c.apostas = [];
+            if (!Array.isArray(c.concursos)) c.concursos = [];
             return c;
           });
           state.cicloVisualizadoId = data.cicloVisualizadoId || state.ciclos[0].id;
         }
-        atualizarTituloAbaNavegador();
-        return;
       }
     }
   } catch (e) {
-    console.log('[SenaClube] Carregando dados...');
+    console.warn('[SenaClube] Aviso ao carregar dados do servidor:', e.message);
   }
+
+  // Garante que o estado sempre tenha pelo menos uma edição ativa conectada
+  getCicloVisualizado();
   atualizarTituloAbaNavegador();
 }
 
@@ -1178,10 +1201,16 @@ function setupEventListeners() {
     }
 
     document.getElementById('config-nome').value = state.nomeBolao || '';
-    document.getElementById('config-concurso-inicial').value = ciclo.concursoInicial ?? 3058;
+    document.getElementById('config-concurso-inicial').value = ciclo.concursoInicial ?? 3064;
     document.getElementById('config-valor-cota').value = cota;
     document.getElementById('config-taxa-organizador').value = Math.round(taxa * 100);
     document.getElementById('config-premio-quadra').value = premioQuadra;
+    if (document.getElementById('config-pix')) {
+      document.getElementById('config-pix').value = state.chavePix || '';
+    }
+    if (document.getElementById('config-whatsapp-grupo')) {
+      document.getElementById('config-whatsapp-grupo').value = state.linkGrupoWhatsApp || '';
+    }
     abrirModal('modal-config');
   });
 
@@ -1621,6 +1650,16 @@ function setupEventListeners() {
       // Prêmio da Quadra
       ciclo.premioQuadra = parseFloat(document.getElementById('config-premio-quadra').value) || 0.0;
 
+      // Chave PIX e Link do Grupo
+      const pixInput = document.getElementById('config-pix');
+      if (pixInput && pixInput.value.trim()) {
+        state.chavePix = pixInput.value.trim();
+      }
+      const grupoInput = document.getElementById('config-whatsapp-grupo');
+      if (grupoInput && grupoInput.value.trim()) {
+        state.linkGrupoWhatsApp = grupoInput.value.trim();
+      }
+
       const salvou = await salvarEstado();
       fecharModal('modal-config');
       renderApp();
@@ -1830,19 +1869,19 @@ function setupEventListeners() {
       txtArea.value = ExportShare.gerarMensagemConviteCompleto({
         nomeBolao: state.nomeBolao || 'SenaClube',
         valorCota: ciclo.valorCota || 30.0,
-        whatsapp: '(61) 99627-2630',
-        whatsappLink: 'https://wa.me/5561996272630',
+        whatsapp: state.chavePix || '(61) 99627-2630',
+        whatsappLink: `https://wa.me/55${(state.chavePix || '61996272630').replace(/\D/g, '')}`,
         linkApp: 'https://sena-clube.vercel.app',
-        linkGrupoWhatsApp: 'https://chat.whatsapp.com/KT4gbhyKUUrBqW9fU2ZGpv'
+        linkGrupoWhatsApp: state.linkGrupoWhatsApp || 'https://chat.whatsapp.com/KT4gbhyKUUrBqW9fU2ZGpv'
       });
     } else if (tabAtual === 'convite-rapido') {
       txtArea.value = ExportShare.gerarMensagemConviteRapido({
         nomeBolao: state.nomeBolao || 'Bolão entre Amigos',
         valorCota: ciclo.valorCota || 30.0,
-        whatsapp: '(61) 99627-2630',
-        whatsappLink: 'https://wa.me/5561996272630',
+        whatsapp: state.chavePix || '(61) 99627-2630',
+        whatsappLink: `https://wa.me/55${(state.chavePix || '61996272630').replace(/\D/g, '')}`,
         linkApp: 'https://sena-clube.vercel.app',
-        linkGrupoWhatsApp: 'https://chat.whatsapp.com/KT4gbhyKUUrBqW9fU2ZGpv'
+        linkGrupoWhatsApp: state.linkGrupoWhatsApp || 'https://chat.whatsapp.com/KT4gbhyKUUrBqW9fU2ZGpv'
       });
     }
   }

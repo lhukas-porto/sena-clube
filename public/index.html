@@ -244,7 +244,7 @@
   <footer class="app-footer">
     <div class="footer-content">
       <span id="footer-easter-egg" style="cursor: pointer; user-select: none;" title="Acesso Administrativo (Clique 3 vezes)"><strong>SenaClube</strong> — Sistema de Gestão de Bolões</span>
-      <span>Baseado nas regras oficiais da Mega-Sena e sistemática de acertos acumulados</span>
+      <span>Baseado nos sorteios oficiais da Mega-Sena e sistemática de acertos acumulados</span>
       <span id="footer-save-indicator" class="save-indicator admin-only">💾 Dados salvos localmente</span>
     </div>
   </footer>
@@ -501,6 +501,19 @@
               </div>
               <input type="number" id="config-premio-quadra" step="any" min="0" placeholder="Ex: 5000.00" value="0">
               <small class="form-hint">Padrão: 10% do valor líquido. Você pode alterar manualmente a qualquer momento.</small>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="config-pix">Chave PIX / Contato do Organizador</label>
+              <input type="text" id="config-pix" placeholder="(61) 99627-2630">
+              <small class="form-hint">Usada nos convites e mensagens do WhatsApp.</small>
+            </div>
+            <div class="form-group">
+              <label for="config-whatsapp-grupo">Link do Grupo do WhatsApp</label>
+              <input type="url" id="config-whatsapp-grupo" placeholder="https://chat.whatsapp.com/...">
+              <small class="form-hint">Link direto de convite para os participantes.</small>
             </div>
           </div>
 
