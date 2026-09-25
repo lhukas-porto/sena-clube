@@ -233,17 +233,6 @@ async function carregarEstado() {
           state.textosWhatsAppCustomizados = Object.assign({}, state.textosWhatsAppCustomizados, data.textosWhatsAppCustomizados);
         }
         if (state.textosWhatsAppCustomizados && typeof state.textosWhatsAppCustomizados === 'object') {
-          Object.keys(state.textosWhatsAppCustomizados).forEach(k => {
-            if (typeof state.textosWhatsAppCustomizados[k] === 'string') {
-              let t = state.textosWhatsAppCustomizados[k];
-              // Desembola itens colados e normaliza parâmetros
-              t = aplicarParametrosDinamicosNoTexto(t, {
-                nomeBolao: state.nomeBolao,
-                chavePix: state.chavePix
-              });
-              state.textosWhatsAppCustomizados[k] = t;
-            }
-          });
           try {
             localStorage.setItem('senaclube_textos_whatsapp', JSON.stringify(state.textosWhatsAppCustomizados));
           } catch (e) {}
@@ -2334,106 +2323,61 @@ function setupEventListeners() {
     // 2. Remove emojis corrompidos ou fragmentados
     texto = texto.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '');
 
-    // 3. Função auxiliar para substituir e DEDUPLICAR qualquer campo (garante no máximo 1 ocorrência limpa)
-    const replaceAndDedup = (source, regexPattern, singleReplacement) => {
+    // 3. Função auxiliar para substituir mantendo rigorosamente as quebras de linha existentes (seja \n ou \n\n)
+    const replaceLinePreservingSpacing = (source, regexPattern, singleLineContent) => {
       let replaced = false;
-      return source.replace(regexPattern, () => {
+      return source.replace(regexPattern, (match, prefix, trailingBreak) => {
         if (!replaced) {
           replaced = true;
-          return singleReplacement;
+          return `${singleLineContent}${trailingBreak !== undefined ? trailingBreak : ''}`;
         }
         return ''; // Elimina qualquer duplicata subsequente
       });
     };
 
     // Cabeçalho oficial: 🏆 *NOME DO BOLÃO — EDIÇÃO X*
-    texto = replaceAndDedup(
+    texto = replaceLinePreservingSpacing(
       texto,
-      /(?:🏆\s*)?\*[^\n*]+?\s*—\s*(?:EDIÇÃO|Ciclo|Edição)\s*\d+\*[^\n]*\n*/gi,
-      `🏆 *${nomeBolao.toUpperCase()} — ${cicloNome.toUpperCase()}*\n\n`
+      /((?:🏆\s*)?\*[^\n*]+?\s*—\s*(?:EDIÇÃO|Ciclo|Edição)\s*\d+\*[^\n]*)(\r?\n*)/gi,
+      `🏆 *${nomeBolao.toUpperCase()} — ${cicloNome.toUpperCase()}*`
     );
 
-    // Concurso Inicial (Deduplica se houver múltiplas ocorrências)
-    texto = replaceAndDedup(
+    // Concurso Inicial
+    texto = replaceLinePreservingSpacing(
       texto,
-      /(?:[^\n]*\*Concurso Inicial:\*[^\n]*\n*)+/gi,
-      `📌 *Concurso Inicial:* ${concursoInicial}\n\n`
+      /(📌\s*\*Concurso Inicial:\*[^\n]*)(\r?\n*)/gi,
+      `📌 *Concurso Inicial:* ${concursoInicial}`
     );
 
-    // Primeiro Sorteio (Deduplica se houver múltiplas ocorrências)
-    texto = replaceAndDedup(
+    // Primeiro Sorteio
+    texto = replaceLinePreservingSpacing(
       texto,
-      /(?:[^\n]*\*(?:Primeiro|1º)\s*Sorteio:\*[^\n]*\n*)+/gi,
-      `🗓️ *Primeiro Sorteio:* ${dataInicio}\n\n`
+      /(🗓️\s*\*(?:Primeiro|1º)\s*Sorteio:\*[^\n]*)(\r?\n*)/gi,
+      `🗓️ *Primeiro Sorteio:* ${dataInicio}`
     );
 
-    // Prazo Limite (Deduplica se houver múltiplas ocorrências)
-    texto = replaceAndDedup(
+    // Prazo Limite
+    texto = replaceLinePreservingSpacing(
       texto,
-      /(?:[^\n]*\*(?:Prazo Limite(?: para Apostas)?|Prazo Final(?: Impreterível)?|Encerramento(?:\s*das\s*Apostas)?):\*[^\n]*\n*)+/gi,
-      `⏰ *Prazo Limite para Apostas:* ${dataEncerramento}\n\n`
+      /(⏰\s*\*(?:Prazo Limite(?: para Apostas)?|Prazo Final(?: Impreterível)?|Encerramento(?:\s*das\s*Apostas)?):\*[^\n]*)(\r?\n*)/gi,
+      `⏰ *Prazo Limite para Apostas:* ${dataEncerramento}`
     );
 
-    // Valor da Cota (Deduplica se houver múltiplas ocorrências)
-    texto = replaceAndDedup(
+    // Valor da Cota
+    texto = replaceLinePreservingSpacing(
       texto,
-      /(?:[^\n]*\*Valor(?: por Jogo\/Cota| da Cota):\*[^\n]*\n*)+/gi,
-      `💰 *Valor por Jogo/Cota:* ${valorCota}\n\n`
+      /(💰\s*\*Valor(?: por Jogo\/Cota| da Cota):\*[^\n]*)(\r?\n*)/gi,
+      `💰 *Valor por Jogo/Cota:* ${valorCota}`
     );
 
-    // Chave Pix (Deduplica se houver múltiplas ocorrências)
-    if (chavePix) {
-      if (/(?:[^\n]*\*(?:Chave\s*)?Pix:\*[^\n]*\n*)/i.test(texto)) {
-        texto = replaceAndDedup(
-          texto,
-          /(?:[^\n]*\*(?:Chave\s*)?Pix:\*[^\n]*\n*)+/gi,
-          `🔑 *Chave Pix:* ${chavePix}\n\n`
-        );
-      } else {
-        const regexAntesRegras = /(\n*📝\s*\*COMO PARTICIPAR:\*)/i;
-        if (regexAntesRegras.test(texto)) {
-          texto = texto.replace(regexAntesRegras, `\n\n🔑 *Chave Pix:* ${chavePix}\n\n$1`);
-        } else {
-          texto += `\n\n🔑 *Chave Pix:* ${chavePix}\n\n`;
-        }
-      }
-    } else {
-      texto = texto.replace(/(?:[^\n]*\*(?:Chave\s*)?Pix:\*[^\n]*\n*)+/gi, '');
+    // Chave Pix (apenas se existir no texto do usuário)
+    if (chavePix && /🔑\s*\*(?:Chave\s*)?Pix:\*/i.test(texto)) {
+      texto = replaceLinePreservingSpacing(
+        texto,
+        /(🔑\s*\*(?:Chave\s*)?Pix:\*[^\n]*)(\r?\n*)/gi,
+        `🔑 *Chave Pix:* ${chavePix}`
+      );
     }
-
-    // Como Participar (Deduplica)
-    texto = replaceAndDedup(
-      texto,
-      /(?:[^\n]*\*COMO PARTICIPAR(?::\*)?[^\n]*\n*)+/gi,
-      `📝 *COMO PARTICIPAR:*\n\n`
-    );
-
-    // Passos 1, 2, 3 (Deduplica)
-    texto = replaceAndDedup(
-      texto,
-      /(?:1️⃣[^\n]*\n*)+/gi,
-      `1️⃣ Envie suas 6 dezenas no privado para mim, ou confirme que mantém seu jogo anterior.\n\n`
-    );
-    texto = replaceAndDedup(
-      texto,
-      /(?:2️⃣[^\n]*\n*)+/gi,
-      `2️⃣ Realize o Pix da sua cota e envie o comprovante.\n\n`
-    );
-    texto = replaceAndDedup(
-      texto,
-      /(?:3️⃣[^\n]*(?:\s*d\b)?\n*)+/gi,
-      `3️⃣ Após o prazo, o sistema travará as apostas e nenhum jogo poderá ser alterado!\n\n`
-    );
-
-    // Divisores horizontais colados ou repetidos
-    texto = texto.replace(/(?:\s*━{5,}\s*){2,}/g, '\n\n━━━━━━━━━━━━━━━━━━━━━\n\n');
-
-    // Mensagem de encerramento / Boa sorte
-    texto = replaceAndDedup(
-      texto,
-      /(?:[^\n]*Boa sorte a todos[^\n]*\n*)+/gi,
-      `Boa sorte a todos, vamos buscar essa Sena juntos! 💰🚀\n\n`
-    );
 
     // Placeholders flexíveis {{...}}
     texto = texto
@@ -2443,9 +2387,6 @@ function setupEventListeners() {
       .replace(/\{\{dataInicio\}\}/gi, dataInicio)
       .replace(/\{\{dataEncerramento\}\}/gi, dataEncerramento)
       .replace(/\{\{chavePix\}\}/gi, chavePix);
-
-    // Normalização final de quebras de linha
-    texto = texto.replace(/\n{3,}/g, '\n\n').trim();
 
     return texto;
   }
@@ -2540,7 +2481,6 @@ function setupEventListeners() {
 
     if (hasCustom && !forcarRegeneracao) {
       let textoSalvo = state.textosWhatsAppCustomizados[tabAtual];
-      textoSalvo = aplicarParametrosDinamicosNoTexto(textoSalvo, dynamicParams);
       if (txtArea) txtArea.value = textoSalvo;
       atualizarBadgeStatusMensagem('customizado');
       return;

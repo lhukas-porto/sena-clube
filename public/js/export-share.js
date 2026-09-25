@@ -120,17 +120,18 @@ const ExportShare = {
     msg += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
     msg += `Fala, amigos! Está oficialmente aberto o período de apostas e renovações para a nossa próxima edição do bolão da Mega-Sena!\n\n`;
     msg += `📌 *Concurso Inicial:* ${concursoInicial}\n\n`;
-    msg += `🗓️ *Primeiro Sorteio:* ${dataInicio}\n\n`;
-    msg += `⏰ *Prazo Limite para Apostas:* ${dataEncerramento}\n\n`;
-    msg += `💰 *Valor por Jogo/Cota:* ${valorCota}\n\n`;
+    msg += `🗓️ *Primeiro Sorteio:* ${dataInicio}\n`;
+    msg += `⏰ *Prazo Limite para Apostas:* ${dataEncerramento}\n`;
+    msg += `💰 *Valor por Jogo/Cota:* ${valorCota}\n`;
     
     if (infoQuadra) {
-      msg += `🎯 *Prêmio Especial da Quadra (1º Sorteio):* ${infoQuadra}\n\n`;
+      msg += `🎯 *Prêmio Especial da Quadra (1º Sorteio):* ${infoQuadra}\n`;
     }
     
     if (chavePix) {
-      msg += `🔑 *Chave Pix:* ${chavePix}\n\n`;
+      msg += `🔑 *Chave Pix:* ${chavePix}\n`;
     }
+    msg += `\n`;
     
     msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
     msg += `📝 *COMO PARTICIPAR:*\n\n`;
