@@ -823,8 +823,13 @@ function renderTabelaApostas(ciclo, apuracao) {
     tr.innerHTML = `
       <td class="td-num">${indexAbsoluto}</td>
       <td class="td-nome">
-        <strong>${aposta.nome}</strong> ${origemBadge}
-        ${aposta.observacao && !aposta.observacao.includes('Importado do PDF') ? `<small>${aposta.observacao}</small>` : ''}
+        <div class="nome-col-wrapper">
+          <span class="mobile-rank-badge">#${indexAbsoluto}</span>
+          <div class="nome-info">
+            <strong>${aposta.nome}</strong> ${origemBadge}
+            ${aposta.observacao && !aposta.observacao.includes('Importado do PDF') ? `<small>${aposta.observacao}</small>` : ''}
+          </div>
+        </div>
       </td>
       <td class="td-dezenas">
         <div class="dezenas-container">${dezenasHtml}</div>

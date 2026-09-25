@@ -2067,31 +2067,480 @@ body.is-admin .historico-meta-grid {
   font-size: 0.8rem;
 }
 
+.mobile-rank-badge {
+  display: none;
+}
+
+/* ==========================================================================
+   ARQUITETURA MOBILE-FIRST (Smartphones e Telas <= 768px / 640px)
+   ========================================================================== */
 @media (max-width: 768px) {
+  .app-header {
+    padding: 8px 12px;
+  }
+
+  /* Fase 1: Cabeçalho Compacto & Grid Responsivo */
   .header-container {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .brand {
+    grid-column: 1 / 2;
+    grid-row: 1;
+    gap: 8px;
+  }
+
+  .brand-badge {
+    width: 34px;
+    height: 34px;
+  }
+
+  .clover-icon {
+    font-size: 18px;
+  }
+
+  .brand-text h1 {
+    font-size: 1.25rem;
+  }
+
+  .brand-text p {
+    display: none;
+  }
+
+  .brand-bolao-tag {
+    margin-top: 0;
+    padding: 2px 7px;
+    font-size: 0.7rem;
+  }
+
+  .header-admin-badge {
+    grid-column: 2 / 3;
+    grid-row: 1;
+    padding: 3px 8px;
+    gap: 6px;
+    align-self: center;
+  }
+
+  .admin-badge-text {
+    font-size: 0.72rem;
+  }
+
+  .btn-logout-admin {
+    padding: 2px 6px;
+    font-size: 0.68rem;
+  }
+
+  /* Linha 2 do Header: Seletor de Edição e Ações */
+  .ciclo-control-bar {
+    grid-column: 1 / 3;
+    grid-row: 2;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 8px;
+    gap: 6px;
+  }
+
+  .ciclo-selector-wrap {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ciclo-selector-wrap label {
+    font-size: 0.68rem;
+  }
+
+  .ciclo-select {
+    width: 100%;
+    max-width: 100%;
+    font-size: 0.78rem;
+    padding: 4px 6px;
+  }
+
+  .ciclo-control-bar .btn {
+    padding: 4px 8px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* Linha 3 do Header: Status Cards */
+  .header-status {
+    grid-column: 1 / 3;
+    grid-row: 3;
+    width: 100%;
+    display: flex;
+    gap: 6px;
+  }
+
+  .status-card {
+    flex: 1;
+    min-width: 0;
+    padding: 4px 8px;
+  }
+
+  .status-card .label {
+    font-size: 0.58rem;
+  }
+
+  .status-card strong {
+    font-size: 0.78rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .status-card small {
+    font-size: 0.62rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .main-content {
+    padding: 10px 12px;
+    gap: 12px;
+  }
+
+  /* Fase 2: KPIs & Filtros Deslizantes */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  /* Destaque do Prêmio Líquido no Topo */
+  #kpi-card-premio {
+    grid-column: 1 / -1;
+  }
+
+  .kpi-card {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .kpi-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 1.15rem;
+    flex-shrink: 0;
+  }
+
+  .kpi-label {
+    font-size: 0.65rem;
+  }
+
+  .kpi-value {
+    font-size: 1.15rem;
+  }
+
+  .kpi-sub {
+    font-size: 0.68rem;
+  }
+
+  /* Sorteios Realizados */
+  .concursos-section {
+    padding: 10px 12px;
+  }
+
+  .concursos-header {
     flex-direction: column;
     align-items: flex-start;
+    gap: 8px;
   }
-  .ciclo-control-bar {
+
+  .concursos-actions {
     width: 100%;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
   }
-  .header-status {
+
+  .concursos-actions .btn {
     width: 100%;
-    justify-content: space-between;
+    padding: 8px 6px;
+    font-size: 0.75rem;
+    justify-content: center;
   }
+
+  .concursos-tags-container {
+    gap: 6px;
+  }
+
+  .concurso-badge-card {
+    min-width: 140px;
+    padding: 6px 10px;
+  }
+
+  /* Barra de Busca e Filtros */
   .toolbar-section {
     flex-direction: column;
     align-items: stretch;
+    gap: 8px;
   }
+
   .search-box {
+    width: 100%;
     max-width: 100%;
+    min-width: 100%;
   }
+
+  .filter-group {
+    width: 100%;
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 6px;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+
+  .filter-group::-webkit-scrollbar {
+    display: none;
+  }
+
+  .filter-chip {
+    flex-shrink: 0;
+    padding: 6px 12px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+
   .action-buttons {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .action-buttons .btn {
+    width: 100%;
+    padding: 8px 6px;
+    font-size: 0.75rem;
+    justify-content: center;
+  }
+
+  #btn-modal-config {
+    grid-column: 1 / -1;
+  }
+
+  /* Fase 3: Cards Individuais de Apostador no Celular */
+  .apostas-table-card {
+    padding: 8px;
+    border-radius: var(--radius-md);
+  }
+
+  .table-responsive {
+    overflow-x: visible;
+  }
+
+  .senaclube-table thead {
+    display: none;
+  }
+
+  .senaclube-table,
+  .senaclube-table tbody {
+    display: block;
+    width: 100%;
+  }
+
+  .senaclube-table tr {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: 12px;
+    margin-bottom: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  }
+
+  .senaclube-table tr.is-leader {
+    border-color: rgba(245, 158, 11, 0.45);
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.15);
+  }
+
+  .senaclube-table tr.is-champion-row {
+    border-color: var(--emerald-primary);
+    box-shadow: 0 0 16px rgba(0, 192, 109, 0.3);
+  }
+
+  .senaclube-table td {
+    display: block !important;
+    border: none !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+
+  .senaclube-table .td-num {
+    display: none !important;
+  }
+
+  /* Header do Card */
+  .nome-col-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .mobile-rank-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-strong);
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .senaclube-table tr.is-leader .mobile-rank-badge {
+    background: rgba(245, 158, 11, 0.15);
+    border-color: var(--gold-primary);
+    color: #fef08a;
+  }
+
+  .nome-info strong {
+    font-size: 0.95rem;
+    color: var(--text-primary);
+  }
+
+  .nome-info small {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  /* Badge de Acertos */
+  .acertos-badge-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 4px 0;
+  }
+
+  .acertos-score {
+    font-size: 0.82rem;
+    padding: 4px 10px;
+  }
+
+  /* Dezenas nos Cards */
+  .senaclube-table .dezenas-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    justify-content: flex-start;
+    padding: 2px 0;
+  }
+
+  .senaclube-table .dezena-ball {
+    width: 30px;
+    height: 30px;
+    font-size: 0.78rem;
+    border-radius: 6px;
+  }
+
+  /* Rodapé do Card: Pagamento & Ações */
+  .senaclube-table .td-status.admin-only,
+  .senaclube-table .td-acoes.admin-only {
+    display: flex !important;
+    align-items: center;
+    width: 100%;
+    padding-top: 6px !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
+  }
+
+  .senaclube-table .payment-toggle {
+    width: 100%;
+    justify-content: center;
+    padding: 7px 10px;
+    font-size: 0.82rem;
+  }
+
+  .senaclube-table .td-acoes {
+    display: flex;
+    gap: 8px;
     justify-content: stretch;
   }
-  .action-buttons button {
+
+  .senaclube-table .btn-table-action {
     flex: 1;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.95rem;
+  }
+
+  .pagination-bar {
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Fase 4: Modais Fluidos no Celular */
+  .modal-overlay {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .modal-card,
+  .modal-card.modal-lg,
+  .modal-card.modal-sm,
+  #modal-config .modal-card {
+    max-width: 100% !important;
+    width: 100%;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    max-height: 90vh;
+    animation: slideUp 0.25s ease;
+  }
+
+  .modal-header {
+    padding: 12px 16px;
+  }
+
+  .modal-body {
+    padding: 14px 16px;
+    max-height: 72vh;
+  }
+
+  .modal-footer {
+    padding: 12px 16px;
+    flex-direction: column-reverse;
+    gap: 8px;
+  }
+
+  .modal-footer .btn {
+    width: 100%;
+    min-height: 44px;
+    justify-content: center;
+    font-size: 0.9rem;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    font-size: 16px;
+  }
+
+  .danger-zone-grid {
+    grid-template-columns: 1fr;
   }
 }
 
