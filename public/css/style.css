@@ -2725,6 +2725,10 @@ body:not(.is-admin) .badge-origem {
   display: none !important;
 }
 
+body.is-admin .participant-only {
+  display: none !important;
+}
+
 .header-admin-badge {
   display: inline-flex;
   align-items: center;

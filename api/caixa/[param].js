@@ -8,7 +8,18 @@ export default async function handler(req, res) {
   }
 
   const { param } = req.query;
-  const numero = (param === 'ultimo' || !param) ? '' : param;
+  let numero = '';
+  if (param && param !== 'ultimo' && param !== '[param]') {
+    const parsed = parseInt(param, 10);
+    if (isNaN(parsed) || parsed <= 0 || parsed > 99999) {
+      return res.status(400).json({
+        success: false,
+        error: 'Parâmetro de concurso inválido. Deve ser um número inteiro positivo ou "ultimo".'
+      });
+    }
+    numero = String(parsed);
+  }
+
   const url = numero
     ? `https://servicebus2.caixa.gov.br/portaldeloterias/api/megasena/${numero}`
     : `https://servicebus2.caixa.gov.br/portaldeloterias/api/megasena`;

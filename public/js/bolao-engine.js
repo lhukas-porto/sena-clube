@@ -292,6 +292,4 @@ const BolaoEngine = {
 if (typeof window !== 'undefined') {
   window.BolaoEngine = BolaoEngine;
 }
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = BolaoEngine;
-}
+export default BolaoEngine;

@@ -5,6 +5,17 @@
  * e exibição detalhada no quadro de Prêmio Líquido.
  */
 
+// Prevenção rigorosa de XSS (Cross-Site Scripting)
+function escapeHTML(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 // Estado Global
 const state = {
   nomeBolao: 'Bolão WM entre amigos — SenaClube',
@@ -22,6 +33,7 @@ const state = {
   paginaAtual: 1,
   itensPorPagina: 50,
   isAdmin: false,
+  version: 1,
   filtroConcursoAteIndex: null
 };
 
@@ -75,14 +87,9 @@ function getCicloAnterior() {
 // Inicialização
 // ==========================================================================
 document.addEventListener('DOMContentLoaded', async () => {
-  // Inicializa o modo com base na sessão salva ou parâmetro ?admin=1
-  const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get('admin') === '1' || urlParams.get('admin') === 'true') {
-    state.isAdmin = true;
-    localStorage.setItem('senaclube_is_admin', 'true');
-  } else {
-    state.isAdmin = localStorage.getItem('senaclube_is_admin') === 'true';
-  }
+  // Inicializa o modo administrador exclusivamente via token assinado de sessão
+  const adminToken = sessionStorage.getItem('senaclube_admin_token') || localStorage.getItem('senaclube_admin_token');
+  state.isAdmin = !!adminToken;
 
   if (state.isAdmin) {
     document.body.classList.add('is-admin');
@@ -105,6 +112,8 @@ async function salvarEstado() {
   // Garante que o ciclo ativo sempre existe no array global
   getCicloVisualizado();
 
+  const token = sessionStorage.getItem('senaclube_admin_token') || localStorage.getItem('senaclube_admin_token');
+
   const payload = {
     nomeBolao: state.nomeBolao,
     taxaOrganizadorGlobal: state.taxaOrganizadorGlobal,
@@ -114,22 +123,55 @@ async function salvarEstado() {
     celularOrganizador: state.celularOrganizador || '(61) 99627-2630',
     linkGrupoWhatsApp: state.linkGrupoWhatsApp || 'https://chat.whatsapp.com/KT4gbhyKUUrBqW9fU2ZGpv',
     urlSiteAcesso: state.urlSiteAcesso || 'https://sena-clube.vercel.app',
-    textosWhatsAppCustomizados: state.textosWhatsAppCustomizados || {}
+    textosWhatsAppCustomizados: state.textosWhatsAppCustomizados || {},
+    version: state.version || 1
   };
 
   try {
+    const headers = {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-cache'
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const res = await fetch('/api/bolao', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache'
-      },
+      headers,
       body: JSON.stringify(payload)
     });
-    if (!res.ok) {
-      const errJson = await res.json().catch(() => ({}));
-      throw new Error(errJson.error || `HTTP ${res.status}`);
+
+    const resData = await res.json().catch(() => ({}));
+
+    // Se o backend recusou por falta de autenticação
+    if (res.status === 401) {
+      state.isAdmin = false;
+      sessionStorage.removeItem('senaclube_admin_token');
+      localStorage.removeItem('senaclube_admin_token');
+      document.body.classList.remove('is-admin');
+      mostrarIndicadorSalvamento(false);
+      mostrarNotificacaoToast('🔒 Sessão de Administrador expirada. Faça login novamente.');
+      abrirModal('modal-login-admin');
+      renderApp();
+      return false;
     }
+
+    // Se houve conflito de concorrência com outro dispositivo
+    if (res.status === 409) {
+      mostrarIndicadorSalvamento(false);
+      mostrarNotificacaoToast('⚠️ Conflito de Concorrência: os dados foram atualizados em outro dispositivo. Recarregue a página antes de salvar.');
+      return false;
+    }
+
+    if (!res.ok) {
+      throw new Error(resData.error || `HTTP ${res.status}`);
+    }
+
+    if (typeof resData.version === 'number') {
+      state.version = resData.version;
+    }
+
     mostrarIndicadorSalvamento(true);
     return true;
   } catch (err) {
@@ -148,6 +190,7 @@ async function carregarEstado() {
     if (res.ok) {
       const data = await res.json();
       if (data && typeof data === 'object') {
+        if (typeof data.version === 'number') state.version = data.version;
         if (data.nomeBolao) state.nomeBolao = data.nomeBolao;
         if (typeof data.taxaOrganizadorGlobal === 'number') state.taxaOrganizadorGlobal = data.taxaOrganizadorGlobal;
         if (data.chavePix) state.chavePix = data.chavePix;
@@ -471,7 +514,7 @@ function renderAbaFinalizar(tabName, grupos) {
     div.className = `finalizar-item ${classeItem}`;
     div.innerHTML = `
       <div>
-        <strong>${a.nome}</strong>
+        <strong>${escapeHTML(a.nome)}</strong>
         <span style="font-size: 0.72rem; color: var(--text-muted); margin-left: 8px;">[${(a.dezenas || []).join(' ')}]</span>
       </div>
       <span class="badge-origem ${tabName === 'desistentes' ? 'alterada' : 'mantida'}" style="font-size: 0.72rem;">${badgeTexto}</span>
@@ -850,8 +893,8 @@ function renderTabelaApostas(ciclo, apuracao) {
         <div class="nome-col-wrapper">
           <span class="mobile-rank-badge">#${indexAbsoluto}</span>
           <div class="nome-info">
-            <strong>${aposta.nome}</strong> ${origemBadge}
-            ${aposta.observacao && !aposta.observacao.includes('Importado do PDF') ? `<small>${aposta.observacao}</small>` : ''}
+            <strong>${escapeHTML(aposta.nome)}</strong> ${origemBadge}
+            ${aposta.observacao && !aposta.observacao.includes('Importado do PDF') ? `<small>${escapeHTML(aposta.observacao)}</small>` : ''}
           </div>
         </div>
       </td>
@@ -867,8 +910,8 @@ function renderTabelaApostas(ciclo, apuracao) {
       <td class="td-status admin-only">${pagoHtml}</td>
       <td class="td-acoes admin-only">
         ${!isBloqueado ? `
-          <button class="btn-table-action" onclick="editarAposta('${aposta.id}')" title="Editar">✏️</button>
-          <button class="btn-table-action delete" onclick="excluirAposta('${aposta.id}')" title="Excluir">🗑️</button>
+          <button class="btn-table-action" onclick="editarAposta('${escapeHTML(aposta.id)}')" title="Editar">✏️</button>
+          <button class="btn-table-action delete" onclick="excluirAposta('${escapeHTML(aposta.id)}')" title="Excluir">🗑️</button>
         ` : `<span style="display: inline-flex; align-items: center; gap: 4px; color: var(--text-muted); font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.05);" title="Apostas fechadas nesta edição. Alterações não permitidas nem mesmo pelo administrador.">🔒 Fechada</span>`}
       </td>
     `;
@@ -925,7 +968,7 @@ function exibirModalQuadra(ganhadores) {
   list.innerHTML = ganhadores.map(g => `
     <div class="celebration-winner-card">
       <div>
-        <strong>${g.nome}</strong>
+        <strong>${escapeHTML(g.nome)}</strong>
         <p style="color: var(--text-secondary); font-size: 0.85rem;">Acertou ${g.acertosNoPrimeiroSorteio} dezenas na abertura da edição!${premioQuadraTexto}</p>
       </div>
       <span class="badge-seq" style="background: var(--gold-primary); color: #000; font-size: 0.9rem; padding: 4px 10px;">
@@ -942,7 +985,7 @@ function exibirModalSena(ganhadores) {
   list.innerHTML = ganhadores.map(g => `
     <div class="celebration-winner-card">
       <div>
-        <strong style="color: var(--emerald-primary); font-size: 1.2rem;">${g.nome}</strong>
+        <strong style="color: var(--emerald-primary); font-size: 1.2rem;">${escapeHTML(g.nome)}</strong>
         <p style="color: var(--text-secondary); font-size: 0.9rem;">Cartela completa com 6 acertos acumulados!</p>
       </div>
       <span style="font-size: 1.8rem;">🏆</span>
@@ -1672,7 +1715,7 @@ function setupEventListeners() {
       item.innerHTML = `
         <div class="preview-item-left">
           ${statusLabel}
-          <strong>${a.nome}</strong>
+          <strong>${escapeHTML(a.nome)}</strong>
         </div>
         <div class="dezenas-preview">
           ${a.dezenas.map(d => `<span class="preview-num">${d}</span>`).join('')}
@@ -1688,7 +1731,7 @@ function setupEventListeners() {
       item.innerHTML = `
         <div class="preview-item-left">
           <span class="comp-badge alteradas" style="font-size: 0.68rem;">🔄 Dezenas Alteradas</span>
-          <strong>${a.nome}</strong>
+          <strong>${escapeHTML(a.nome)}</strong>
         </div>
         <div class="dezenas-preview">
           ${a.dezenas.map(d => `<span class="preview-num">${d}</span>`).join('')}
@@ -1704,7 +1747,7 @@ function setupEventListeners() {
       item.innerHTML = `
         <div class="preview-item-left">
           <span class="comp-badge adicionadas" style="font-size: 0.68rem;">🆕 Nova Aposta</span>
-          <strong>${a.nome}</strong>
+          <strong>${escapeHTML(a.nome)}</strong>
         </div>
         <div class="dezenas-preview">
           ${a.dezenas.map(d => `<span class="preview-num">${d}</span>`).join('')}
@@ -2418,8 +2461,26 @@ function setupEventListeners() {
   });
 
   // ==========================================================================
-  // Controle de Acesso Administrativo (Easter Egg: 3 cliques no rodapé)
+  // Controle de Acesso Administrativo (Botão no Header & 3 cliques no rodapé)
   // ==========================================================================
+  function abrirModalLoginAdmin() {
+    const userInput = document.getElementById('admin-user-input');
+    const passInput = document.getElementById('admin-pass-input');
+    const errBox = document.getElementById('admin-login-error');
+    if (userInput) userInput.value = '';
+    if (passInput) passInput.value = '';
+    if (errBox) errBox.classList.add('hidden');
+    abrirModal('modal-login-admin');
+    setTimeout(() => passInput?.focus() || userInput?.focus(), 150);
+  }
+
+  const btnTriggerLogin = document.getElementById('btn-trigger-login-admin');
+  if (btnTriggerLogin) {
+    btnTriggerLogin.addEventListener('click', () => {
+      abrirModalLoginAdmin();
+    });
+  }
+
   let easterEggClicks = 0;
   let easterEggTimer = null;
   const easterEggEl = document.getElementById('footer-easter-egg');
@@ -2433,14 +2494,7 @@ function setupEventListeners() {
         if (state.isAdmin) {
           mostrarNotificacaoToast('👑 Você já está no Modo Administrador!');
         } else {
-          const userInput = document.getElementById('admin-user-input');
-          const passInput = document.getElementById('admin-pass-input');
-          const errBox = document.getElementById('admin-login-error');
-          if (userInput) userInput.value = '';
-          if (passInput) passInput.value = '';
-          if (errBox) errBox.classList.add('hidden');
-          abrirModal('modal-login-admin');
-          setTimeout(() => userInput?.focus(), 150);
+          abrirModalLoginAdmin();
         }
       } else {
         easterEggTimer = setTimeout(() => {
@@ -2450,24 +2504,53 @@ function setupEventListeners() {
     });
   }
 
-  // Formulário de Login de Administrador
+  // Formulário de Login de Administrador via API
   const formLoginAdmin = document.getElementById('form-login-admin');
   if (formLoginAdmin) {
-    formLoginAdmin.addEventListener('submit', (e) => {
+    formLoginAdmin.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const u = (document.getElementById('admin-user-input')?.value || '').trim();
       const p = (document.getElementById('admin-pass-input')?.value || '').trim();
+      const btnSubmit = document.getElementById('btn-submit-login-admin');
+      const errBox = document.getElementById('admin-login-error');
+      if (errBox) errBox.classList.add('hidden');
 
-      if (u.toLowerCase() === 'admin' && p === 'admin') {
-        state.isAdmin = true;
-        localStorage.setItem('senaclube_is_admin', 'true');
-        document.body.classList.add('is-admin');
-        fecharModal('modal-login-admin');
-        mostrarNotificacaoToast('👑 Modo Administrador Ativado!');
-        renderApp();
-      } else {
-        const errBox = document.getElementById('admin-login-error');
-        if (errBox) errBox.classList.remove('hidden');
+      if (btnSubmit) {
+        btnSubmit.disabled = true;
+        btnSubmit.textContent = '⏳ Autenticando...';
+      }
+
+      try {
+        const res = await fetch('/api/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: p })
+        });
+        const data = await res.json();
+
+        if (res.ok && data.success && data.token) {
+          sessionStorage.setItem('senaclube_admin_token', data.token);
+          localStorage.setItem('senaclube_admin_token', data.token);
+          state.isAdmin = true;
+          document.body.classList.add('is-admin');
+          fecharModal('modal-login-admin');
+          mostrarNotificacaoToast('👑 Modo Administrador Ativado com Sucesso!');
+          renderApp();
+        } else {
+          if (errBox) {
+            errBox.textContent = data.error || 'Credencial inválida. Acesso negado.';
+            errBox.classList.remove('hidden');
+          }
+        }
+      } catch (err) {
+        if (errBox) {
+          errBox.textContent = 'Erro ao conectar ao servidor de autenticação.';
+          errBox.classList.remove('hidden');
+        }
+      } finally {
+        if (btnSubmit) {
+          btnSubmit.disabled = false;
+          btnSubmit.textContent = 'Entrar 🔓';
+        }
       }
     });
   }
@@ -2477,7 +2560,8 @@ function setupEventListeners() {
   if (btnLogoutAdmin) {
     btnLogoutAdmin.addEventListener('click', () => {
       state.isAdmin = false;
-      localStorage.removeItem('senaclube_is_admin');
+      sessionStorage.removeItem('senaclube_admin_token');
+      localStorage.removeItem('senaclube_admin_token');
       document.body.classList.remove('is-admin');
       mostrarNotificacaoToast('Modo Consulta Ativado.');
       renderApp();
@@ -2525,7 +2609,7 @@ function renderModalHistoricoCiclos() {
     card.innerHTML = `
       <div class="historico-card-header">
         <div>
-          <strong>${c.nome}</strong>
+          <strong>${escapeHTML(c.nome)}</strong>
           <span style="color: var(--text-muted); font-size: 0.8rem; margin-left: 8px;">Concursos ${primeiroConc} até ${ultimoConc}</span>
         </div>
         <span class="historico-tag ${c.status === 'ativo' ? 'ativo' : 'finalizado'}">
@@ -2540,8 +2624,8 @@ function renderModalHistoricoCiclos() {
         <div class="admin-only">Taxa Organizador (20%): <strong style="color: var(--gold-primary);">${formatarMoeda(fin.valorOrganizadorArrecadado)}</strong></div>
         <div>Prêmio Pago da Quadra: <strong style="color: var(--gold-primary);">${formatarMoeda(fin.valorPagoQuadra)}</strong></div>
         <div>Prêmio Líquido da Sena: <strong style="color: var(--emerald-primary);">${formatarMoeda(fin.premioSenaLiquido)}</strong></div>
-        <div>${senaLabel}: <strong>${senaGanhadores || 'Nenhum'}</strong></div>
-        <div>${quadraLabel}: <strong style="color: var(--gold-primary);">${quadraGanhadores || 'Nenhum'}</strong></div>
+        <div>${senaLabel}: <strong>${escapeHTML(senaGanhadores || 'Nenhum')}</strong></div>
+        <div>${quadraLabel}: <strong style="color: var(--gold-primary);">${escapeHTML(quadraGanhadores || 'Nenhum')}</strong></div>
       </div>
 
       <div class="historico-card-actions" style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border-subtle); gap: 10px;">

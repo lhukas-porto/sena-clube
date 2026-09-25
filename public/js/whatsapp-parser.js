@@ -116,4 +116,7 @@ const WhatsAppParser = {
   }
 };
 
-window.WhatsAppParser = WhatsAppParser;
+if (typeof window !== 'undefined') {
+  window.WhatsAppParser = WhatsAppParser;
+}
+export default WhatsAppParser;

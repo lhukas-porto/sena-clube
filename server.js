@@ -4,6 +4,8 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
+import { checkPassword, generateToken, verifyToken } from './api/_auth.js';
+import { validateBolaoPayload } from './api/_validation.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,10 +14,11 @@ const PORT = process.env.PORT || 3333;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const DATA_DIR = path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'senaclube.json');
+const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
 
 // Supabase Client
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
 let supabase = null;
 if (supabaseUrl && supabaseKey) {
   try {
@@ -26,9 +29,28 @@ if (supabaseUrl && supabaseKey) {
   }
 }
 
-// Garante que o diretório de dados exista
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+// Garante que os diretórios necessários existam
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+if (!fs.existsSync(BACKUPS_DIR)) fs.mkdirSync(BACKUPS_DIR, { recursive: true });
+
+function salvarBackupSnapshot(dadosAtuais) {
+  try {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const backupPath = path.join(BACKUPS_DIR, `senaclube_${timestamp}.json`);
+    fs.writeFileSync(backupPath, JSON.stringify(dadosAtuais, null, 2), 'utf-8');
+
+    // Mantém no máximo os últimos 20 backups locais
+    const files = fs.readdirSync(BACKUPS_DIR)
+      .filter(f => f.startsWith('senaclube_') && f.endsWith('.json'))
+      .sort();
+    if (files.length > 20) {
+      files.slice(0, files.length - 20).forEach(f => {
+        try { fs.unlinkSync(path.join(BACKUPS_DIR, f)); } catch {}
+      });
+    }
+  } catch (err) {
+    console.warn('[SenaClube] Erro ao gerar snapshot de backup:', err.message);
+  }
 }
 
 // Tipos MIME comuns
@@ -47,14 +69,13 @@ const MIME_TYPES = {
   '.ttf': 'font/ttf'
 };
 
-// Cache simples em memória para concursos da Caixa
+// Cache em memória para concursos da Caixa
 const CAIXA_CACHE = new Map();
 
 async function fetchCaixaConcurso(numero = null) {
   const cacheKey = numero ? `conc_${numero}` : 'conc_latest';
   if (CAIXA_CACHE.has(cacheKey)) {
     const cached = CAIXA_CACHE.get(cacheKey);
-    // Cache de 10 minutos para último, 24 horas para anteriores
     const maxAge = numero ? 24 * 60 * 60 * 1000 : 10 * 60 * 1000;
     if (Date.now() - cached.timestamp < maxAge) {
       return cached.data;
@@ -80,9 +101,7 @@ async function fetchCaixaConcurso(numero = null) {
     });
     clearTimeout(timeout);
 
-    if (!res.ok) {
-      throw new Error(`Status Caixa ${res.status}`);
-    }
+    if (!res.ok) throw new Error(`Status Caixa ${res.status}`);
 
     const data = await res.json();
     const result = {
@@ -101,7 +120,7 @@ async function fetchCaixaConcurso(numero = null) {
     clearTimeout(timeout);
     console.warn(`[Caixa API] Falha na busca primária (${url}):`, err.message);
 
-    // 2. Tenta espelho Guidi (altamente confiável e com mesmo schema)
+    // 2. Espelho Guidi
     try {
       const guidiUrl = numero
         ? `https://api.guidi.dev.br/loteria/megasena/${numero}`
@@ -128,7 +147,7 @@ async function fetchCaixaConcurso(numero = null) {
       console.warn('[Caixa API] Falha no espelho Guidi:', guidiErr.message);
     }
 
-    // 3. Tenta espelho Heroku (fallback terciário)
+    // 3. Espelho Heroku
     try {
       const mirrorUrl = numero
         ? `https://loteriascaixa-api.herokuapp.com/api/megasena/${numero}`
@@ -159,10 +178,13 @@ async function fetchCaixaConcurso(numero = null) {
 }
 
 const server = http.createServer(async (req, res) => {
-  // CORS
+  // Cabeçalhos de Segurança OWASP e CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Client-Version');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -173,10 +195,46 @@ const server = http.createServer(async (req, res) => {
   const reqUrl = new URL(req.url, `http://${req.headers.host}`);
   let pathname = reqUrl.pathname;
 
-  // Normalização caso o proxy ou rewrites passem com prefixo /public
   if (pathname.startsWith('/public/')) {
     pathname = pathname.substring(7);
     if (!pathname.startsWith('/')) pathname = '/' + pathname;
+  }
+
+  // --- API: Autenticação de Administrador ---
+  if (pathname === '/api/auth') {
+    if (req.method !== 'POST') {
+      res.writeHead(405, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Método não permitido' }));
+    }
+
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const parsed = JSON.parse(body || '{}');
+        const password = parsed.password || parsed.senha;
+
+        if (!password || !checkPassword(password)) {
+          res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
+          return res.end(JSON.stringify({
+            success: false,
+            error: 'Credencial inválida. Acesso de administrador não autorizado.'
+          }));
+        }
+
+        const token = generateToken();
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        return res.end(JSON.stringify({
+          success: true,
+          message: 'Autenticado com sucesso!',
+          token
+        }));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'JSON inválido' }));
+      }
+    });
+    return;
   }
 
   // --- API: Buscar concurso da Caixa ---
@@ -220,9 +278,6 @@ const server = http.createServer(async (req, res) => {
             res.writeHead(200);
             return res.end(JSON.stringify(data.estado_json));
           }
-          if (error && error.code !== 'PGRST116') {
-            console.warn('[Supabase GET] Aviso:', error.message);
-          }
         } catch (err) {
           console.error('[Supabase GET] Erro de conexão:', err.message);
         }
@@ -238,27 +293,74 @@ const server = http.createServer(async (req, res) => {
           return res.end(JSON.stringify({ exists: false, data: null }));
         }
       } catch (err) {
-        console.error('[SenaClube] Erro ao carregar dados:', err);
-        res.writeHead(500);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({ error: err.message }));
       }
     }
 
     if (req.method === 'POST') {
+      // 1. Verificação de Autenticação
+      const authHeader = req.headers.authorization || req.headers['authorization'] || '';
+      if (!verifyToken(authHeader)) {
+        res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
+        return res.end(JSON.stringify({
+          success: false,
+          error: 'Acesso não autorizado. É necessário estar logado como administrador para salvar alterações.'
+        }));
+      }
+
       let body = '';
       req.on('data', chunk => { body += chunk; });
       req.on('end', async () => {
         try {
           const parsed = JSON.parse(body);
+
+          // 2. Validação de Schema
+          const validation = validateBolaoPayload(parsed);
+          if (!validation.valid) {
+            res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+            return res.end(JSON.stringify({ success: false, error: validation.error }));
+          }
+
+          // 3. Concorrência e Snapshot Local
+          let currentVersion = 0;
+          let currentData = null;
+          if (fs.existsSync(DATA_FILE)) {
+            try {
+              currentData = JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
+              currentVersion = currentData.version || 0;
+            } catch {}
+          }
+
+          const clientVersion = typeof parsed.version === 'number' ? parsed.version : 0;
+          const forceSave = req.headers['x-force-save'] === 'true' || parsed.forceSave === true;
+
+          if (!forceSave && currentVersion > 0 && clientVersion > 0 && currentVersion > clientVersion) {
+            res.writeHead(409, { 'Content-Type': 'application/json; charset=utf-8' });
+            return res.end(JSON.stringify({
+              success: false,
+              conflict: true,
+              error: 'Conflito de Concorrência: os dados foram atualizados em outro dispositivo. Recarregue a página antes de salvar.',
+              serverVersion: currentVersion,
+              clientVersion
+            }));
+          }
+
+          if (currentData) {
+            salvarBackupSnapshot(currentData);
+          }
+
+          const nextVersion = Math.max(currentVersion, clientVersion) + 1;
+          parsed.version = nextVersion;
           parsed.savedAt = new Date().toISOString();
 
-          // Tenta salvar localmente
+          // Salva localmente
           try {
             if (fs.existsSync(DATA_DIR)) {
               fs.writeFileSync(DATA_FILE, JSON.stringify(parsed, null, 2), 'utf-8');
             }
           } catch (localErr) {
-            console.warn('[SenaClube] Aviso de gravação local em disco:', localErr.message);
+            console.warn('[SenaClube] Erro de gravação local em disco:', localErr.message);
           }
 
           // Salva no Supabase se disponível
@@ -283,17 +385,16 @@ const server = http.createServer(async (req, res) => {
             }
           }
 
-          console.log(`[SenaClube] Dados salvos com sucesso às ${parsed.savedAt}:`, {
-            nomeBolao: parsed.nomeBolao,
-            ciclos: parsed.ciclos?.length,
-            cota: parsed.ciclos?.[0]?.valorCota,
-            premioQuadra: parsed.ciclos?.[0]?.premioQuadra
-          });
           res.writeHead(200, {
             'Content-Type': 'application/json; charset=utf-8',
             'Cache-Control': 'no-store, no-cache, must-revalidate'
           });
-          res.end(JSON.stringify({ success: true, message: 'Dados salvos com sucesso!' }));
+          res.end(JSON.stringify({
+            success: true,
+            message: 'Dados salvos com sucesso!',
+            version: nextVersion,
+            savedAt: parsed.savedAt
+          }));
         } catch (err) {
           console.error('[SenaClube] Erro ao salvar POST /api/bolao:', err);
           res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -304,10 +405,9 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
-  // --- Servir arquivos estáticos ---
+  // --- Servir arquivos estáticos com proteção de path traversal ---
   let filePath = path.join(PUBLIC_DIR, pathname === '/' ? 'index.html' : pathname);
 
-  // Segurança simples contra directory traversal
   if (!filePath.startsWith(PUBLIC_DIR)) {
     res.writeHead(403);
     res.end('Acesso Proibido');
@@ -316,7 +416,6 @@ const server = http.createServer(async (req, res) => {
 
   fs.stat(filePath, (err, stats) => {
     if (err || !stats.isFile()) {
-      // Se não achar, fallback para index.html (SPA)
       filePath = path.join(PUBLIC_DIR, 'index.html');
     }
 
@@ -340,5 +439,5 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`[SenaClube] Servidor ativo em http://localhost:${PORT}`);
+  console.log(`[SenaClube] Servidor ativo e protegido em http://localhost:${PORT}`);
 });
