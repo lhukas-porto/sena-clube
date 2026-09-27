@@ -1175,13 +1175,15 @@ function renderTabelaApostas(ciclo, apuracao) {
           ${campeaoTag}
         </div>
       </td>
-      <td class="td-status admin-only">${pagoHtml}</td>
-      <td class="td-acoes admin-only">
-        ${!isBloqueado ? `
-          <button class="btn-table-action" onclick="editarAposta('${escapeHTML(aposta.id)}')" title="Editar">✏️</button>
-          <button class="btn-table-action delete" onclick="excluirAposta('${escapeHTML(aposta.id)}')" title="Excluir">🗑️</button>
-        ` : `<span style="display: inline-flex; align-items: center; gap: 4px; color: var(--text-muted); font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.05);" title="Apostas fechadas nesta edição. Alterações não permitidas nem mesmo pelo administrador.">🔒 Fechada</span>`}
-      </td>
+      ${state.isAdmin ? `
+        <td class="td-status admin-only">${pagoHtml}</td>
+        <td class="td-acoes admin-only">
+          ${!isBloqueado ? `
+            <button class="btn-table-action" onclick="editarAposta('${escapeHTML(aposta.id)}')" title="Editar">✏️</button>
+            <button class="btn-table-action delete" onclick="excluirAposta('${escapeHTML(aposta.id)}')" title="Excluir">🗑️</button>
+          ` : `<span style="display: inline-flex; align-items: center; gap: 4px; color: var(--text-muted); font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.05);" title="Apostas fechadas nesta edição. Alterações não permitidas nem mesmo pelo administrador.">🔒 Fechada</span>`}
+        </td>
+      ` : ''}
     `;
     fragment.appendChild(tr);
   });

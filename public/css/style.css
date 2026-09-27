@@ -2548,9 +2548,9 @@ body.is-admin .historico-meta-grid {
     border-radius: 6px;
   }
 
-  /* Rodapé do Card: Pagamento & Ações */
-  .senaclube-table .td-status.admin-only,
-  .senaclube-table .td-acoes.admin-only {
+  /* Rodapé do Card: Pagamento & Ações (Exclusivo Administrador) */
+  body.is-admin .senaclube-table .td-status.admin-only,
+  body.is-admin .senaclube-table .td-acoes.admin-only {
     display: flex !important;
     align-items: center;
     width: 100%;
@@ -2722,6 +2722,11 @@ body.is-admin .historico-meta-grid {
    Modo Administrador vs Modo Consulta Pública
    ========================================================================== */
 body:not(.is-admin) .admin-only,
+body:not(.is-admin) .senaclube-table .admin-only,
+body:not(.is-admin) .senaclube-table .td-status,
+body:not(.is-admin) .senaclube-table .td-acoes,
+body:not(.is-admin) .senaclube-table .th-status,
+body:not(.is-admin) .senaclube-table .th-acoes,
 body:not(.is-admin) .badge-origem {
   display: none !important;
 }
