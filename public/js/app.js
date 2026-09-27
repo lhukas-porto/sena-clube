@@ -99,6 +99,96 @@ function isApostasFechadas(ciclo) {
   return false;
 }
 
+function aplicarParametrosDinamicosNoTexto(textoOriginal, params = {}) {
+  if (!textoOriginal || typeof textoOriginal !== 'string') return '';
+  let texto = textoOriginal;
+
+  const nomeBolao = (params.nomeBolao || state.nomeBolao || 'Bolão dos amigos').trim();
+  const cicloNome = (params.cicloNome || 'Edição 1').replace(/Ciclo\s*/i, 'Edição ');
+  const concursoInicial = String(params.concursoInicial || '3064');
+  const dataInicio = params.dataInicio || 'Terça-feira (29/09)';
+  const dataEncerramento = params.dataEncerramento || 'Segunda-feira (28/09) até as 20h';
+  const chavePix = (params.chavePix !== undefined ? params.chavePix : (state.chavePix || '')).trim();
+  const valorCota = params.valorCota ? (typeof params.valorCota === 'number' ? `R$ ${params.valorCota.toFixed(2).replace('.', ',')}` : params.valorCota) : 'R$ 30,00';
+
+  // 1. Limpeza estrita de qualquer menção legada a "WM" ou resíduos
+  texto = texto.replace(/BOLÃO\s+WM\s+ENTRE\s+AMIGOS\s*(?:—|-)?\s*SENACLUBE/gi, nomeBolao.toUpperCase());
+  texto = texto.replace(/BOLÃO\s+WM\s+ENTRE\s+AMIGOS/gi, nomeBolao.toUpperCase());
+  texto = texto.replace(/Bolão WM entre amigos/gi, nomeBolao);
+  texto = texto.replace(/\bWM\b/g, '').replace(/\s{2,}/g, ' ');
+
+  // 2. Remove emojis corrompidos ou fragmentados
+  texto = texto.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '');
+
+  // 3. Função auxiliar para substituir mantendo rigorosamente as quebras de linha existentes (seja \n ou \n\n)
+  const replaceLinePreservingSpacing = (source, regexPattern, singleLineContent) => {
+    let replaced = false;
+    return source.replace(regexPattern, (match, prefix, trailingBreak) => {
+      if (!replaced) {
+        replaced = true;
+        return `${singleLineContent}${trailingBreak !== undefined ? trailingBreak : ''}`;
+      }
+      return ''; // Elimina qualquer duplicata subsequente
+    });
+  };
+
+  // Cabeçalho oficial: 🏆 *NOME DO BOLÃO — EDIÇÃO X*
+  texto = replaceLinePreservingSpacing(
+    texto,
+    /((?:🏆\s*)?\*[^\n*]+?\s*—\s*(?:EDIÇÃO|Ciclo|Edição)\s*\d+\*[^\n]*)(\r?\n*)/gi,
+    `🏆 *${nomeBolao.toUpperCase()} — ${cicloNome.toUpperCase()}*`
+  );
+
+  // Concurso Inicial
+  texto = replaceLinePreservingSpacing(
+    texto,
+    /(📌\s*\*Concurso Inicial:\*[^\n]*)(\r?\n*)/gi,
+    `📌 *Concurso Inicial:* ${concursoInicial}`
+  );
+
+  // Primeiro Sorteio
+  texto = replaceLinePreservingSpacing(
+    texto,
+    /(🗓️\s*\*(?:Primeiro|1º)\s*Sorteio:\*[^\n]*)(\r?\n*)/gi,
+    `🗓️ *Primeiro Sorteio:* ${dataInicio}`
+  );
+
+  // Prazo Limite
+  texto = replaceLinePreservingSpacing(
+    texto,
+    /(⏰\s*\*(?:Prazo Limite(?: para Apostas)?|Prazo Final(?: Impreterível)?|Encerramento(?:\s*das\s*Apostas)?):\*[^\n]*)(\r?\n*)/gi,
+    `⏰ *Prazo Limite para Apostas:* ${dataEncerramento}`
+  );
+
+  // Valor da Cota
+  texto = replaceLinePreservingSpacing(
+    texto,
+    /(💰\s*\*Valor(?: por Jogo\/Cota| da Cota):\*[^\n]*)(\r?\n*)/gi,
+    `💰 *Valor por Jogo/Cota:* ${valorCota}`
+  );
+
+  // Chave Pix (apenas se existir no texto do usuário)
+  if (chavePix && /🔑\s*\*(?:Chave\s*)?Pix:\*/i.test(texto)) {
+    texto = replaceLinePreservingSpacing(
+      texto,
+      /(🔑\s*\*(?:Chave\s*)?Pix:\*[^\n]*)(\r?\n*)/gi,
+      `🔑 *Chave Pix:* ${chavePix}`
+    );
+  }
+
+  // Placeholders flexíveis {{...}}
+  texto = texto
+    .replace(/\{\{nomeBolao\}\}/gi, nomeBolao)
+    .replace(/\{\{cicloNome\}\}/gi, cicloNome)
+    .replace(/\{\{concursoInicial\}\}/gi, concursoInicial)
+    .replace(/\{\{dataInicio\}\}/gi, dataInicio)
+    .replace(/\{\{dataEncerramento\}\}/gi, dataEncerramento)
+    .replace(/\{\{chavePix\}\}/gi, chavePix);
+
+  return texto;
+}
+window.aplicarParametrosDinamicosNoTexto = aplicarParametrosDinamicosNoTexto;
+
 // ==========================================================================
 // Inicialização
 // ==========================================================================
@@ -1171,95 +1261,7 @@ function abrirModalLoginAdmin() {
 }
 window.abrirModalLoginAdmin = abrirModalLoginAdmin;
 
-function aplicarParametrosDinamicosNoTexto(textoOriginal, params = {}) {
-  if (!textoOriginal || typeof textoOriginal !== 'string') return '';
-  let texto = textoOriginal;
 
-  const nomeBolao = (params.nomeBolao || state.nomeBolao || 'Bolão dos amigos').trim();
-  const cicloNome = (params.cicloNome || 'Edição 1').replace(/Ciclo\s*/i, 'Edição ');
-  const concursoInicial = String(params.concursoInicial || '3064');
-  const dataInicio = params.dataInicio || 'Terça-feira (29/09)';
-  const dataEncerramento = params.dataEncerramento || 'Segunda-feira (28/09) até as 20h';
-  const chavePix = (params.chavePix !== undefined ? params.chavePix : (state.chavePix || '')).trim();
-  const valorCota = params.valorCota ? (typeof params.valorCota === 'number' ? `R$ ${params.valorCota.toFixed(2).replace('.', ',')}` : params.valorCota) : 'R$ 30,00';
-
-  // 1. Limpeza estrita de qualquer menção legada a "WM" ou resíduos
-  texto = texto.replace(/BOLÃO\s+WM\s+ENTRE\s+AMIGOS\s*(?:—|-)?\s*SENACLUBE/gi, nomeBolao.toUpperCase());
-  texto = texto.replace(/BOLÃO\s+WM\s+ENTRE\s+AMIGOS/gi, nomeBolao.toUpperCase());
-  texto = texto.replace(/Bolão WM entre amigos/gi, nomeBolao);
-  texto = texto.replace(/\bWM\b/g, '').replace(/\s{2,}/g, ' ');
-
-  // 2. Remove emojis corrompidos ou fragmentados
-  texto = texto.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '');
-
-  // 3. Função auxiliar para substituir mantendo rigorosamente as quebras de linha existentes (seja \n ou \n\n)
-  const replaceLinePreservingSpacing = (source, regexPattern, singleLineContent) => {
-    let replaced = false;
-    return source.replace(regexPattern, (match, prefix, trailingBreak) => {
-      if (!replaced) {
-        replaced = true;
-        return `${singleLineContent}${trailingBreak !== undefined ? trailingBreak : ''}`;
-      }
-      return ''; // Elimina qualquer duplicata subsequente
-    });
-  };
-
-  // Cabeçalho oficial: 🏆 *NOME DO BOLÃO — EDIÇÃO X*
-  texto = replaceLinePreservingSpacing(
-    texto,
-    /((?:🏆\s*)?\*[^\n*]+?\s*—\s*(?:EDIÇÃO|Ciclo|Edição)\s*\d+\*[^\n]*)(\r?\n*)/gi,
-    `🏆 *${nomeBolao.toUpperCase()} — ${cicloNome.toUpperCase()}*`
-  );
-
-  // Concurso Inicial
-  texto = replaceLinePreservingSpacing(
-    texto,
-    /(📌\s*\*Concurso Inicial:\*[^\n]*)(\r?\n*)/gi,
-    `📌 *Concurso Inicial:* ${concursoInicial}`
-  );
-
-  // Primeiro Sorteio
-  texto = replaceLinePreservingSpacing(
-    texto,
-    /(🗓️\s*\*(?:Primeiro|1º)\s*Sorteio:\*[^\n]*)(\r?\n*)/gi,
-    `🗓️ *Primeiro Sorteio:* ${dataInicio}`
-  );
-
-  // Prazo Limite
-  texto = replaceLinePreservingSpacing(
-    texto,
-    /(⏰\s*\*(?:Prazo Limite(?: para Apostas)?|Prazo Final(?: Impreterível)?|Encerramento(?:\s*das\s*Apostas)?):\*[^\n]*)(\r?\n*)/gi,
-    `⏰ *Prazo Limite para Apostas:* ${dataEncerramento}`
-  );
-
-  // Valor da Cota
-  texto = replaceLinePreservingSpacing(
-    texto,
-    /(💰\s*\*Valor(?: por Jogo\/Cota| da Cota):\*[^\n]*)(\r?\n*)/gi,
-    `💰 *Valor por Jogo/Cota:* ${valorCota}`
-  );
-
-  // Chave Pix (apenas se existir no texto do usuário)
-  if (chavePix && /🔑\s*\*(?:Chave\s*)?Pix:\*/i.test(texto)) {
-    texto = replaceLinePreservingSpacing(
-      texto,
-      /(🔑\s*\*(?:Chave\s*)?Pix:\*[^\n]*)(\r?\n*)/gi,
-      `🔑 *Chave Pix:* ${chavePix}`
-    );
-  }
-
-  // Placeholders flexíveis {{...}}
-  texto = texto
-    .replace(/\{\{nomeBolao\}\}/gi, nomeBolao)
-    .replace(/\{\{cicloNome\}\}/gi, cicloNome)
-    .replace(/\{\{concursoInicial\}\}/gi, concursoInicial)
-    .replace(/\{\{dataInicio\}\}/gi, dataInicio)
-    .replace(/\{\{dataEncerramento\}\}/gi, dataEncerramento)
-    .replace(/\{\{chavePix\}\}/gi, chavePix);
-
-  return texto;
-}
-window.aplicarParametrosDinamicosNoTexto = aplicarParametrosDinamicosNoTexto;
 
 // ==========================================================================
 // Event Listeners e Modais
@@ -2693,67 +2695,86 @@ function setupEventListeners() {
     const txtArea = document.getElementById('relatorio-whatsapp-text');
     if (!txtArea) return;
 
+    // Evita duplo clique concorrente se já estiver em processamento
+    if (btnSalvar && btnSalvar.disabled) return;
+
     const valor = txtArea.value;
     const tabAtual = state.abaMensagemWhatsAppAtiva || 'boletim';
     const nomeAba = getNomeAbaWhatsApp(tabAtual);
+    const originalText = '💾 Salvar Modelo';
 
-    const originalHtml = btnSalvar ? btnSalvar.innerHTML : '💾 Salvar Este Modelo';
     if (btnSalvar) {
       btnSalvar.disabled = true;
       btnSalvar.innerHTML = '⏳ Salvando Alterações...';
       btnSalvar.style.opacity = '0.85';
     }
 
-    if (!state.textosWhatsAppCustomizados) {
-      state.textosWhatsAppCustomizados = {};
-    }
-    state.textosWhatsAppCustomizados[tabAtual] = valor;
-
-    // Sincroniza a chave Pix se o usuário tiver preenchido no input de parâmetros
-    const inputPix = document.getElementById('msg-param-pix');
-    if (inputPix && inputPix.value.trim()) {
-      state.chavePix = (typeof MaskUtils !== 'undefined') ? MaskUtils.formatarChavePix(inputPix.value.trim()) : inputPix.value.trim();
-    }
-
-    // Sincroniza o prazo limite de apostas com o ciclo ativo
-    const inputEncerramento = document.getElementById('msg-param-encerramento-date');
-    const inputHora = document.getElementById('msg-param-encerramento-time');
-    if (inputEncerramento && inputEncerramento.value) {
-      const ciclo = getCicloVisualizado();
-      if (ciclo) {
-        ciclo.dataLimiteApostas = `${inputEncerramento.value}T${inputHora ? inputHora.value : '20:00'}:00`;
-      }
-    }
-
-    // Persistência local no navegador
     try {
-      localStorage.setItem('senaclube_textos_whatsapp', JSON.stringify(state.textosWhatsAppCustomizados));
-    } catch (e) {
-      console.warn('[SenaClube] Erro ao gravar localStorage:', e);
-    }
+      if (!state.textosWhatsAppCustomizados) {
+        state.textosWhatsAppCustomizados = {};
+      }
+      state.textosWhatsAppCustomizados[tabAtual] = valor;
 
-    // Persistência no servidor / banco
-    await salvarEstado();
+      // Sincroniza a chave Pix se o usuário tiver preenchido no input de parâmetros
+      const inputPix = document.getElementById('msg-param-pix');
+      if (inputPix && inputPix.value.trim()) {
+        state.chavePix = (typeof MaskUtils !== 'undefined') ? MaskUtils.formatarChavePix(inputPix.value.trim()) : inputPix.value.trim();
+      }
 
-    const agora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    atualizarBadgeStatusMensagem('customizado', agora);
+      // Sincroniza o prazo limite de apostas com o ciclo ativo
+      const inputEncerramento = document.getElementById('msg-param-encerramento-date');
+      const inputHora = document.getElementById('msg-param-encerramento-time');
+      if (inputEncerramento && inputEncerramento.value) {
+        const ciclo = getCicloVisualizado();
+        if (ciclo) {
+          ciclo.dataLimiteApostas = `${inputEncerramento.value}T${inputHora ? inputHora.value : '20:00'}:00`;
+        }
+      }
 
-    if (btnSalvar) {
-      btnSalvar.disabled = false;
-      btnSalvar.innerHTML = '✅ Modelo Salvo com Sucesso!';
-      btnSalvar.style.backgroundColor = '#10b981';
-      btnSalvar.style.borderColor = '#10b981';
-      btnSalvar.style.color = '#ffffff';
+      // Persistência local no navegador
+      try {
+        localStorage.setItem('senaclube_textos_whatsapp', JSON.stringify(state.textosWhatsAppCustomizados));
+      } catch (e) {
+        console.warn('[SenaClube] Erro ao gravar localStorage:', e);
+      }
 
-      setTimeout(() => {
-        btnSalvar.innerHTML = originalHtml;
+      // Persistência no servidor / banco
+      const salvou = await salvarEstado();
+
+      const agora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      atualizarBadgeStatusMensagem('customizado', agora);
+
+      if (btnSalvar) {
+        btnSalvar.innerHTML = salvou !== false ? '✅ Modelo Salvo com Sucesso!' : '💾 Salvo Localmente';
+        btnSalvar.style.backgroundColor = salvou !== false ? '#10b981' : '#f59e0b';
+        btnSalvar.style.borderColor = salvou !== false ? '#10b981' : '#f59e0b';
+        btnSalvar.style.color = '#ffffff';
+
+        setTimeout(() => {
+          if (btnSalvar) {
+            btnSalvar.disabled = false;
+            btnSalvar.innerHTML = originalText;
+            btnSalvar.style.backgroundColor = '';
+            btnSalvar.style.borderColor = '';
+            btnSalvar.style.color = '';
+            btnSalvar.style.opacity = '1';
+          }
+        }, 2200);
+      }
+
+      mostrarNotificacaoToast(`💾 Modelo "${nomeAba}" salvo como novo padrão!`);
+    } catch (err) {
+      console.error('[SenaClube] Erro ao salvar modelo WhatsApp:', err);
+      if (btnSalvar) {
+        btnSalvar.disabled = false;
+        btnSalvar.innerHTML = originalText;
         btnSalvar.style.backgroundColor = '';
         btnSalvar.style.borderColor = '';
         btnSalvar.style.color = '';
-      }, 3000);
+        btnSalvar.style.opacity = '1';
+      }
+      mostrarNotificacaoToast('⚠️ Ocorreu um erro ao salvar o modelo.');
     }
-
-    mostrarNotificacaoToast(`💾 Modelo "${nomeAba}" salvo como novo padrão!`);
   };
 
   // Listeners de clique para os botões do modal de mensagens
@@ -2987,16 +3008,20 @@ function setupEventListeners() {
   configTabBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       const targetTabId = btn.getAttribute('data-tab');
+      if (!targetTabId) return;
+
       configTabBtns.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
 
       document.querySelectorAll('.config-tab-pane').forEach(pane => {
         pane.classList.remove('active');
+        pane.classList.add('hidden');
       });
 
       const targetPane = document.getElementById(targetTabId);
       if (targetPane) {
         targetPane.classList.add('active');
+        targetPane.classList.remove('hidden');
       }
 
       if (targetTabId === 'config-tab-seguranca') {
