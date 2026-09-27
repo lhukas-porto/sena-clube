@@ -64,6 +64,11 @@
           <strong id="header-caixa-ultimo">Sincronizando...</strong>
           <small id="header-caixa-status" class="online-dot">Conectado</small>
         </div>
+        <div class="status-card" id="status-nuvem-card" title="Status da sincronização com a nuvem (Supabase)">
+          <span class="label">Nuvem (Supabase)</span>
+          <strong id="header-nuvem-status" style="color: var(--color-success, #10b981);">☁️ Sincronizado</strong>
+          <small id="header-nuvem-detalhe">Dados atualizados</small>
+        </div>
       </div>
 
       <!-- Badge de Administrador Ativo -->
@@ -610,6 +615,21 @@
                 </div>
               </div>
             </div>
+
+            <!-- Caixa de Sincronização com a Nuvem -->
+            <div class="sync-nuvem-box admin-only" style="margin: 15px 0 5px 0; padding: 14px; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <div>
+                  <strong style="color: #10b981; font-size: 0.95rem;">☁️ Sincronização em Tempo Real (Supabase)</strong>
+                  <p style="font-size: 0.8rem; color: var(--text-secondary); margin: 3px 0 0 0;">
+                    Garante que todas as apostas feitas neste computador estejam salvas na nuvem e visíveis no celular.
+                  </p>
+                </div>
+                <button type="button" id="btn-forcar-sync-nuvem" class="btn btn-sm btn-success">
+                  ☁️ Sincronizar Nuvem Agora
+                </button>
+              </div>
+            </div>
           </div>
 
           <div class="modal-footer">
@@ -1090,11 +1110,11 @@
   </div>
 
   <!-- Scripts Modulares -->
-  <script src="js/mask-utils.js?v=6.2"></script>
-  <script src="js/caixa-api.js?v=5.8"></script>
-  <script src="js/whatsapp-parser.js?v=5.8"></script>
-  <script src="js/bolao-engine.js?v=5.8"></script>
-  <script src="js/export-share.js?v=5.8"></script>
-  <script src="js/app.js?v=6.3"></script>
+  <script src="js/mask-utils.js?v=6.5"></script>
+  <script src="js/caixa-api.js?v=6.5"></script>
+  <script src="js/whatsapp-parser.js?v=6.5"></script>
+  <script src="js/bolao-engine.js?v=6.5"></script>
+  <script src="js/export-share.js?v=6.5"></script>
+  <script src="js/app.js?v=6.5"></script>
 </body>
 </html>

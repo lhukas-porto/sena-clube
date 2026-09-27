@@ -221,9 +221,30 @@ document.addEventListener('DOMContentLoaded', async () => {
 // ==========================================================================
 // Persistência
 // ==========================================================================
-async function salvarEstado() {
-  mostrarIndicadorSalvamento(false, true);
+// ==========================================================================
+// Persistência & Sincronização de Nuvem (Supabase)
+// ==========================================================================
+function atualizarIndicadorStatusNuvem(isSynced, motivo = '') {
+  const elStatus = document.getElementById('header-nuvem-status');
+  const elDetalhe = document.getElementById('header-nuvem-detalhe');
+  const card = document.getElementById('status-nuvem-card');
+  if (elStatus) {
+    if (isSynced) {
+      elStatus.textContent = '☁️ Sincronizado';
+      elStatus.style.color = 'var(--color-success, #10b981)';
+      if (elDetalhe) elDetalhe.textContent = 'Nuvem atualizada';
+      if (card) card.title = 'Todas as apostas estão salvas e sincronizadas no Supabase (visíveis no celular e em qualquer aparelho).';
+    } else {
+      elStatus.textContent = '⚠️ Não Sincronizado';
+      elStatus.style.color = 'var(--color-warning, #f59e0b)';
+      if (elDetalhe) elDetalhe.textContent = motivo || 'Salvo apenas localmente';
+      if (card) card.title = `Atenção: alterações salvas apenas neste navegador (${motivo || 'Pendente'}). Faça login de Admin para sincronizar com o celular.`;
+    }
+  }
+}
+window.atualizarIndicadorStatusNuvem = atualizarIndicadorStatusNuvem;
 
+async function salvarEstado(force = false) {
   // Garante que o ciclo ativo sempre existe no array global
   getCicloVisualizado();
 
@@ -247,13 +268,21 @@ async function salvarEstado() {
     version: state.version || 1
   };
 
+  if (!token) {
+    console.warn('[SenaClube] Tentativa de salvar sem autenticação de administrador.');
+    atualizarIndicadorStatusNuvem(false, 'Não autenticado');
+    mostrarNotificacaoToast('⚠️ Salvo apenas neste navegador. Faça login como Administrador para sincronizar com o celular!');
+    return false;
+  }
+
   try {
     const headers = {
       'Content-Type': 'application/json',
-      'Cache-Control': 'no-cache'
+      'Cache-Control': 'no-cache',
+      'Authorization': `Bearer ${token}`
     };
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+    if (force) {
+      headers['X-Force-Save'] = 'true';
     }
 
     const res = await fetch('/api/bolao', {
@@ -270,8 +299,8 @@ async function salvarEstado() {
       sessionStorage.removeItem('senaclube_admin_token');
       localStorage.removeItem('senaclube_admin_token');
       document.body.classList.remove('is-admin');
-      mostrarIndicadorSalvamento(false);
-      mostrarNotificacaoToast('🔒 Sessão de Administrador expirada. Faça login novamente.');
+      atualizarIndicadorStatusNuvem(false, 'Sessão expirada');
+      mostrarNotificacaoToast('🔒 Sessão de Administrador expirada. Faça login novamente para salvar na nuvem.');
       abrirModal('modal-login-admin');
       renderApp();
       return false;
@@ -289,16 +318,17 @@ async function salvarEstado() {
         if (retryRes.ok) {
           const retryData = await retryRes.json().catch(() => ({}));
           if (typeof retryData.version === 'number') state.version = retryData.version;
-          mostrarIndicadorSalvamento(true);
+          atualizarIndicadorStatusNuvem(true);
           return true;
         }
       }
-      mostrarIndicadorSalvamento(false);
+      atualizarIndicadorStatusNuvem(false, 'Conflito de versão');
       mostrarNotificacaoToast('⚠️ Conflito de Concorrência: recarregue a página para obter a versão mais recente.');
       return false;
     }
 
     if (!res.ok) {
+      atualizarIndicadorStatusNuvem(false, resData.error || `HTTP ${res.status}`);
       throw new Error(resData.error || `HTTP ${res.status}`);
     }
 
@@ -306,79 +336,126 @@ async function salvarEstado() {
       state.version = resData.version;
     }
 
-    mostrarIndicadorSalvamento(true);
+    atualizarIndicadorStatusNuvem(true);
     return true;
   } catch (err) {
     console.warn('[SenaClube] Erro ao salvar backend:', err.message);
-    mostrarIndicadorSalvamento(false);
+    atualizarIndicadorStatusNuvem(false, 'Erro de conexão');
     return false;
   }
 }
 
 async function carregarEstado() {
+  // 1. Resgatar backup local antes da requisição à nuvem
+  let localCiclos = null;
+  try {
+    const rawLocal = localStorage.getItem('senaclube_backup_ciclos');
+    if (rawLocal) {
+      localCiclos = JSON.parse(rawLocal);
+    }
+  } catch (e) {}
+
+  let dadosServidor = null;
   try {
     const res = await fetch(`/api/bolao?_t=${Date.now()}`, {
       cache: 'no-store',
       headers: { 'Cache-Control': 'no-cache, no-store' }
     });
     if (res.ok) {
-      const data = await res.json();
-      if (data && typeof data === 'object') {
-        if (typeof data.version === 'number') state.version = data.version;
-        if (data.nomeBolao) {
-          state.nomeBolao = String(data.nomeBolao).replace(/\bWM\b/gi, '').replace(/\s{2,}/g, ' ').trim() || 'Bolão dos amigos';
-        }
-        if (typeof data.taxaOrganizadorGlobal === 'number') state.taxaOrganizadorGlobal = data.taxaOrganizadorGlobal;
-        if (data.chavePix) state.chavePix = (typeof MaskUtils !== 'undefined') ? MaskUtils.formatarChavePix(data.chavePix) : data.chavePix;
-        if (data.celularOrganizador) state.celularOrganizador = (typeof MaskUtils !== 'undefined') ? MaskUtils.formatarTelefone(data.celularOrganizador) : data.celularOrganizador;
-        if (data.linkGrupoWhatsApp) state.linkGrupoWhatsApp = data.linkGrupoWhatsApp;
-        if (data.urlSiteAcesso) state.urlSiteAcesso = data.urlSiteAcesso;
-        if (data.textosWhatsAppCustomizados && typeof data.textosWhatsAppCustomizados === 'object') {
-          state.textosWhatsAppCustomizados = Object.assign({}, state.textosWhatsAppCustomizados, data.textosWhatsAppCustomizados);
-        }
-        if (state.textosWhatsAppCustomizados && typeof state.textosWhatsAppCustomizados === 'object') {
-          try {
-            localStorage.setItem('senaclube_textos_whatsapp', JSON.stringify(state.textosWhatsAppCustomizados));
-          } catch (e) {}
-        }
-        if (data.ciclos && Array.isArray(data.ciclos) && data.ciclos.length > 0) {
-          state.ciclos = data.ciclos.map(c => {
-            if (c.nome && /^ciclo\s*\d+/i.test(c.nome)) {
-              c.nome = c.nome.replace(/^ciclo/i, 'Edição');
-            }
-            if (!Array.isArray(c.apostas)) c.apostas = [];
-            if (!Array.isArray(c.concursos)) c.concursos = [];
-            return c;
-          });
-          state.cicloVisualizadoId = data.cicloVisualizadoId || state.ciclos[0].id;
-          try {
-            localStorage.setItem('senaclube_backup_ciclos', JSON.stringify(state.ciclos));
-          } catch (e) {}
-        }
-      }
+      dadosServidor = await res.json();
     }
   } catch (e) {
     console.warn('[SenaClube] Aviso ao carregar dados do servidor:', e.message);
   }
 
-  // Resiliência contra perda acidental: se o ciclo carregado estiver sem apostas mas o backup local tiver apostas, preserva
-  try {
-    const cicloAtivo = getCicloVisualizado();
-    if (cicloAtivo && (!cicloAtivo.apostas || cicloAtivo.apostas.length === 0)) {
-      const localBackup = localStorage.getItem('senaclube_backup_ciclos');
-      if (localBackup) {
-        const parsed = JSON.parse(localBackup);
-        if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].apostas && parsed[0].apostas.length > 0) {
-          console.info('[SenaClube] Recuperando apostas salvas do backup local resiliente');
-          state.ciclos = parsed;
-        }
-      }
+  // 2. Se o servidor respondeu com dados válidos, popula o state
+  if (dadosServidor && typeof dadosServidor === 'object') {
+    if (typeof dadosServidor.version === 'number') state.version = dadosServidor.version;
+    if (dadosServidor.nomeBolao) {
+      state.nomeBolao = String(dadosServidor.nomeBolao).replace(/\bWM\b/gi, '').replace(/\s{2,}/g, ' ').trim() || 'Bolão dos amigos';
     }
+    if (typeof dadosServidor.taxaOrganizadorGlobal === 'number') state.taxaOrganizadorGlobal = dadosServidor.taxaOrganizadorGlobal;
+    if (dadosServidor.chavePix) state.chavePix = (typeof MaskUtils !== 'undefined') ? MaskUtils.formatarChavePix(dadosServidor.chavePix) : dadosServidor.chavePix;
+    if (dadosServidor.celularOrganizador) state.celularOrganizador = (typeof MaskUtils !== 'undefined') ? MaskUtils.formatarTelefone(dadosServidor.celularOrganizador) : dadosServidor.celularOrganizador;
+    if (dadosServidor.linkGrupoWhatsApp) state.linkGrupoWhatsApp = dadosServidor.linkGrupoWhatsApp;
+    if (dadosServidor.urlSiteAcesso) state.urlSiteAcesso = dadosServidor.urlSiteAcesso;
+    if (dadosServidor.textosWhatsAppCustomizados && typeof dadosServidor.textosWhatsAppCustomizados === 'object') {
+      state.textosWhatsAppCustomizados = Object.assign({}, state.textosWhatsAppCustomizados, dadosServidor.textosWhatsAppCustomizados);
+    }
+    if (state.textosWhatsAppCustomizados && typeof state.textosWhatsAppCustomizados === 'object') {
+      try {
+        localStorage.setItem('senaclube_textos_whatsapp', JSON.stringify(state.textosWhatsAppCustomizados));
+      } catch (e) {}
+    }
+    if (dadosServidor.ciclos && Array.isArray(dadosServidor.ciclos) && dadosServidor.ciclos.length > 0) {
+      state.ciclos = dadosServidor.ciclos.map(c => {
+        if (c.nome && /^ciclo\s*\d+/i.test(c.nome)) {
+          c.nome = c.nome.replace(/^ciclo/i, 'Edição');
+        }
+        if (!Array.isArray(c.apostas)) c.apostas = [];
+        if (!Array.isArray(c.concursos)) c.concursos = [];
+        return c;
+      });
+      state.cicloVisualizadoId = dadosServidor.cicloVisualizadoId || state.ciclos[0].id;
+    }
+  }
+
+  // 3. SMART MERGE: Preservar e fundir apostas locais que possam ter ficado salvas apenas neste navegador
+  let apostasResgatadasTotal = 0;
+  if (Array.isArray(localCiclos) && localCiclos.length > 0) {
+    if (!Array.isArray(state.ciclos) || state.ciclos.length === 0) {
+      state.ciclos = localCiclos;
+      apostasResgatadasTotal = (localCiclos[0].apostas || []).length;
+    } else {
+      localCiclos.forEach(localCiclo => {
+        let serverCiclo = state.ciclos.find(sc => sc.id === localCiclo.id);
+        if (!serverCiclo && state.ciclos.length > 0) {
+          serverCiclo = state.ciclos[0];
+        }
+        if (serverCiclo && Array.isArray(localCiclo.apostas) && localCiclo.apostas.length > 0) {
+          if (!Array.isArray(serverCiclo.apostas)) serverCiclo.apostas = [];
+          
+          localCiclo.apostas.forEach(localAp => {
+            const jaExiste = serverCiclo.apostas.some(sa => 
+              sa.id === localAp.id || 
+              (sa.nome === localAp.nome && Array.isArray(sa.dezenas) && Array.isArray(localAp.dezenas) && sa.dezenas.join(',') === localAp.dezenas.join(','))
+            );
+            if (!jaExiste) {
+              serverCiclo.apostas.push(localAp);
+              apostasResgatadasTotal++;
+            }
+          });
+        }
+      });
+    }
+  }
+
+  // 4. Se recuperou apostas locais não sincronizadas:
+  if (apostasResgatadasTotal > 0) {
+    console.info(`[SenaClube] 🔄 Smart Merge: ${apostasResgatadasTotal} aposta(s) resgatadas do cache local.`);
+    if (state.isAdmin) {
+      salvarEstado(true).then(ok => {
+        if (ok) {
+          mostrarNotificacaoToast(`☁️ ${apostasResgatadasTotal} aposta(s) do seu navegador foram sincronizadas com a nuvem!`);
+          atualizarIndicadorStatusNuvem(true);
+        } else {
+          atualizarIndicadorStatusNuvem(false, 'Pendente de envio');
+        }
+      });
+    } else {
+      atualizarIndicadorStatusNuvem(false, `${apostasResgatadasTotal} aposta(s) apenas local`);
+      mostrarNotificacaoToast(`⚠️ Há ${apostasResgatadasTotal} aposta(s) salva(s) apenas neste computador. Faça login como Admin para sincronizar.`);
+    }
+  } else {
+    atualizarIndicadorStatusNuvem(true);
+  }
+
+  // Atualiza o backup local consolidado
+  try {
+    localStorage.setItem('senaclube_backup_ciclos', JSON.stringify(state.ciclos));
   } catch (e) {}
 
-  // Garante que o estado sempre tenha pelo menos uma edição ativa conectada
   getCicloVisualizado();
-  mostrarIndicadorSalvamento(true);
   atualizarTituloAbaNavegador();
 }
 
@@ -398,10 +475,6 @@ function atualizarHeaderNomeBolao() {
   if (container) {
     container.style.display = nome ? 'inline-flex' : 'none';
   }
-}
-
-function mostrarIndicadorSalvamento() {
-  // Indicador de rodapé removido a pedido do usuário
 }
 
 // ==========================================================================
@@ -1193,7 +1266,7 @@ function exibirModalSena(ganhadores) {
 // ==========================================================================
 // Ações de Pagamento e Edição
 // ==========================================================================
-window.togglePagamentoAposta = function(id) {
+window.togglePagamentoAposta = async function(id) {
   const ciclo = getCicloVisualizado();
   if (isApostasFechadas(ciclo)) {
     alert('🔒 Ação bloqueada: As apostas desta edição já estão fechadas! Conforme a regra de transparência, nem mesmo o administrador pode alterar o status de pagamento ou confirmação.');
@@ -1203,12 +1276,12 @@ window.togglePagamentoAposta = function(id) {
   if (aposta) {
     aposta.pago = !aposta.pago;
     aposta.confirmada = aposta.pago;
-    salvarEstado();
     renderApp();
+    await salvarEstado();
   }
 };
 
-window.excluirAposta = function(id) {
+window.excluirAposta = async function(id) {
   const ciclo = getCicloVisualizado();
   if (isApostasFechadas(ciclo)) {
     alert('🔒 Ação bloqueada: As apostas desta edição já estão fechadas! Nenhuma aposta pode ser excluída, nem mesmo pelo administrador.');
@@ -1218,8 +1291,8 @@ window.excluirAposta = function(id) {
   if (!aposta) return;
   if (confirm(`Deseja realmente remover a aposta de "${aposta.nome}"?`)) {
     ciclo.apostas = ciclo.apostas.filter(a => a.id !== id);
-    salvarEstado();
     renderApp();
+    await salvarEstado();
   }
 };
 
@@ -2007,9 +2080,14 @@ function setupEventListeners() {
       });
     }
 
-    await salvarEstado();
+    const salvou = await salvarEstado();
     fecharModal('modal-aposta');
     renderApp();
+    if (salvou) {
+      mostrarNotificacaoToast('✅ Aposta salva e sincronizada na nuvem com sucesso!');
+    } else {
+      mostrarNotificacaoToast('⚠️ Aposta salva neste navegador! Faça login de Admin para sincronizar com o celular.');
+    }
   });
 
   // WhatsApp Parser & Comparador Inteligente
@@ -2222,7 +2300,7 @@ function setupEventListeners() {
       novasAdicionadas++;
     });
 
-    await salvarEstado();
+    const salvou = await salvarEstado();
     fecharModal('modal-whatsapp');
     renderApp();
 
@@ -2237,7 +2315,11 @@ function setupEventListeners() {
       detalhesMsg += `• ${novasAdicionadas} nova(s) aposta(s) adicionada(s) ao bolão${defaultPago ? ' e marcada(s) como PAGA(S)' : ' (Aguardando pagamento)'}.\n`;
     }
 
-    alert(`🎉 Processamento concluído com sucesso!\n\n${detalhesMsg}`);
+    if (salvou) {
+      alert(`🎉 Apostas importadas e sincronizadas com a nuvem com sucesso!\n\n${detalhesMsg}`);
+    } else {
+      alert(`⚠️ Apostas importadas LOCALMENTE, mas NÃO sincronizadas com a nuvem!\n\nMotivo: É necessário estar autenticado como administrador para salvar na nuvem.\n\n${detalhesMsg}`);
+    }
   });
 
   // Form: Inserir Sorteio Manual
@@ -2436,6 +2518,34 @@ function setupEventListeners() {
   document.getElementById('btn-excluir-ciclo-atual').addEventListener('click', () => {
     const ciclo = getCicloVisualizado();
     excluirCicloPorId(ciclo.id);
+  });
+
+  // Botão: Forçar Sincronização com a Nuvem (Supabase)
+  document.getElementById('btn-forcar-sync-nuvem')?.addEventListener('click', async () => {
+    const btn = document.getElementById('btn-forcar-sync-nuvem');
+    if (!state.isAdmin) {
+      mostrarNotificacaoToast('🔒 Faça login como Administrador para sincronizar com a nuvem.');
+      abrirModal('modal-login-admin');
+      return;
+    }
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = '⏳ Sincronizando com Supabase...';
+    }
+    try {
+      const ok = await salvarEstado(true);
+      if (ok) {
+        mostrarNotificacaoToast('✅ Sincronizado com a nuvem! Todas as apostas estão disponíveis no celular.');
+        alert('✅ Sucesso! Todas as apostas deste computador foram sincronizadas com o banco de dados na nuvem (Supabase).\n\nAgora você pode abrir o site no seu celular ou enviar o link aos amigos que as apostas estarão visíveis!');
+      } else {
+        mostrarNotificacaoToast('⚠️ Não foi possível sincronizar com a nuvem. Verifique a conexão.');
+      }
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = '☁️ Sincronizar Nuvem Agora';
+      }
+    }
   });
 
   // Modal Relatório & Central de Mensagens WhatsApp
@@ -2952,6 +3062,12 @@ function setupEventListeners() {
           fecharModal('modal-login-admin');
           mostrarNotificacaoToast(`👑 Modo Administrador Ativado (${data.username || 'Admin'})!`);
           renderApp();
+          // Sincroniza qualquer aposta local que ainda não estava na nuvem
+          salvarEstado(true).then(ok => {
+            if (ok) {
+              mostrarNotificacaoToast('☁️ Apostas e dados sincronizados com a nuvem!');
+            }
+          });
         } else {
           if (errBox) {
             errBox.textContent = data.error || 'Credencial inválida. Acesso negado.';
