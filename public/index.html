@@ -64,11 +64,6 @@
           <strong id="header-caixa-ultimo">Sincronizando...</strong>
           <small id="header-caixa-status" class="online-dot">Conectado</small>
         </div>
-        <div class="status-card admin-only" id="status-nuvem-card" title="Status da sincronização com a nuvem (Supabase)">
-          <span class="label">Nuvem (Supabase)</span>
-          <strong id="header-nuvem-status" style="color: var(--color-success, #10b981);">☁️ Sincronizado</strong>
-          <small id="header-nuvem-detalhe">Dados atualizados</small>
-        </div>
       </div>
 
       <!-- Badge de Administrador Ativo -->
@@ -824,9 +819,12 @@
         <textarea id="relatorio-whatsapp-text" class="relatorio-textarea" rows="18" placeholder="Digite ou ajuste o texto da mensagem à vontade..."></textarea>
       </div>
       <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;" id="modal-msg-action-buttons">
           <button type="button" id="btn-salvar-texto-whatsapp" class="btn btn-primary" title="Salvar este modelo como o novo padrão definitivo para esta aba" style="transition: all 0.3s ease;">
             💾 Salvar Modelo
+          </button>
+          <button type="button" id="btn-restaurar-texto-whatsapp" class="btn btn-outline" title="Restaurar o texto padrão original deste comunicado" style="transition: all 0.3s ease; display: none;">
+            🔄 Restaurar Padrão
           </button>
         </div>
         <div style="display: flex; gap: 8px;">

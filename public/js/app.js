@@ -42,6 +42,7 @@ try {
   if (localTxt) {
     const parsed = JSON.parse(localTxt);
     if (parsed && typeof parsed === 'object') {
+      delete parsed.boletim; // Boletim de apuração nunca deve ser carregado de modelo salvo
       state.textosWhatsAppCustomizados = parsed;
     }
   }
@@ -264,7 +265,11 @@ async function salvarEstado(force = false) {
     celularOrganizador: state.celularOrganizador || '(61) 99627-2630',
     linkGrupoWhatsApp: state.linkGrupoWhatsApp || 'https://chat.whatsapp.com/KT4gbhyKUUrBqW9fU2ZGpv',
     urlSiteAcesso: state.urlSiteAcesso || 'https://sena-clube.vercel.app',
-    textosWhatsAppCustomizados: state.textosWhatsAppCustomizados || {},
+    textosWhatsAppCustomizados: (() => {
+      const copy = Object.assign({}, state.textosWhatsAppCustomizados);
+      delete copy.boletim;
+      return copy;
+    })(),
     version: state.version || 1
   };
 
@@ -380,9 +385,12 @@ async function carregarEstado() {
     if (dadosServidor.linkGrupoWhatsApp) state.linkGrupoWhatsApp = dadosServidor.linkGrupoWhatsApp;
     if (dadosServidor.urlSiteAcesso) state.urlSiteAcesso = dadosServidor.urlSiteAcesso;
     if (dadosServidor.textosWhatsAppCustomizados && typeof dadosServidor.textosWhatsAppCustomizados === 'object') {
+      delete dadosServidor.textosWhatsAppCustomizados.boletim;
       state.textosWhatsAppCustomizados = Object.assign({}, state.textosWhatsAppCustomizados, dadosServidor.textosWhatsAppCustomizados);
+      delete state.textosWhatsAppCustomizados.boletim;
     }
     if (state.textosWhatsAppCustomizados && typeof state.textosWhatsAppCustomizados === 'object') {
+      delete state.textosWhatsAppCustomizados.boletim;
       try {
         localStorage.setItem('senaclube_textos_whatsapp', JSON.stringify(state.textosWhatsAppCustomizados));
       } catch (e) {}
@@ -2566,7 +2574,12 @@ function setupEventListeners() {
     const badge = document.getElementById('badge-msg-custom-status');
     if (!badge) return;
 
-    if (status === 'customizado') {
+    if (status === 'dinamico') {
+      badge.innerHTML = '📊 Apuração Dinâmica em Tempo Real';
+      badge.style.background = 'rgba(16, 185, 129, 0.15)';
+      badge.style.color = '#10b981';
+      badge.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+    } else if (status === 'customizado') {
       const horaTexto = horaSalvamento ? ` às ${horaSalvamento}` : '';
       badge.innerHTML = `💾 Modelo Padrão Salvo${horaTexto}`;
       badge.style.background = 'rgba(16, 185, 129, 0.2)';
@@ -2577,11 +2590,41 @@ function setupEventListeners() {
       badge.style.background = 'rgba(245, 158, 11, 0.2)';
       badge.style.color = '#f59e0b';
       badge.style.borderColor = 'rgba(245, 158, 11, 0.5)';
+    } else if (status === 'editado_boletim') {
+      badge.innerHTML = '✏️ Texto Editado (Pronto para Copiar)';
+      badge.style.background = 'rgba(245, 158, 11, 0.2)';
+      badge.style.color = '#f59e0b';
+      badge.style.borderColor = 'rgba(245, 158, 11, 0.5)';
     } else {
       badge.innerHTML = '✨ Modelo Ativo';
       badge.style.background = 'rgba(59, 130, 246, 0.15)';
       badge.style.color = '#60a5fa';
       badge.style.borderColor = 'rgba(59, 130, 246, 0.3)';
+    }
+  }
+
+  function atualizarBotoesAbaWhatsApp(tabAtual) {
+    const btnSalvar = document.getElementById('btn-salvar-texto-whatsapp');
+    const btnRestaurar = document.getElementById('btn-restaurar-texto-whatsapp');
+    if (!btnSalvar) return;
+
+    if (tabAtual === 'boletim') {
+      btnSalvar.innerHTML = '🔄 Recalcular Boletim';
+      btnSalvar.title = 'Recalcula o boletim com todos os sorteios oficiais e pontuações mais recentes';
+      btnSalvar.style.backgroundColor = '';
+      btnSalvar.style.borderColor = '';
+      btnSalvar.style.color = '';
+      if (btnRestaurar) btnRestaurar.style.display = 'none';
+    } else {
+      btnSalvar.innerHTML = '💾 Salvar Modelo';
+      btnSalvar.title = 'Salvar este modelo como o novo padrão definitivo para esta aba';
+      btnSalvar.style.backgroundColor = '';
+      btnSalvar.style.borderColor = '';
+      btnSalvar.style.color = '';
+      const hasCustom = state.textosWhatsAppCustomizados && typeof state.textosWhatsAppCustomizados[tabAtual] === 'string' && state.textosWhatsAppCustomizados[tabAtual].trim() !== '';
+      if (btnRestaurar) {
+        btnRestaurar.style.display = hasCustom ? 'inline-flex' : 'none';
+      }
     }
   }
 
@@ -2633,6 +2676,16 @@ function setupEventListeners() {
     } else if (tabAtual === 'convite-rapido') {
       if (panelParams) panelParams.classList.add('hidden');
       if (descEl) descEl.textContent = 'Convite curto e direto ao ponto com foco em engajamento rápido para amigos no WhatsApp.';
+    }
+
+    // Configura botões de ação para a aba atual
+    atualizarBotoesAbaWhatsApp(tabAtual);
+
+    // REGRA DE OURO: O Boletim de Apuração é SEMPRE dinâmico e nunca congelado por modelo salvo!
+    if (tabAtual === 'boletim') {
+      atualizarBadgeStatusMensagem('dinamico');
+      if (txtArea) txtArea.value = ExportShare.gerarRelatorioWhatsApp(state, apuracao, financeiro, ciclo);
+      return;
     }
 
     const dynamicParams = {
@@ -2797,21 +2850,49 @@ function setupEventListeners() {
   const txtAreaMsg = document.getElementById('relatorio-whatsapp-text');
   if (txtAreaMsg) {
     txtAreaMsg.addEventListener('input', () => {
-      atualizarBadgeStatusMensagem('editado');
+      const tabAtual = state.abaMensagemWhatsAppAtiva || 'boletim';
+      if (tabAtual === 'boletim') {
+        atualizarBadgeStatusMensagem('editado_boletim');
+      } else {
+        atualizarBadgeStatusMensagem('editado');
+      }
     });
   }
 
   // Função Global: Salvar Modelo de Mensagem Atual (Persistente para os próximos comunicados)
   window.salvarModeloWhatsApp = async function() {
+    const tabAtual = state.abaMensagemWhatsAppAtiva || 'boletim';
     const btnSalvar = document.getElementById('btn-salvar-texto-whatsapp');
     const txtArea = document.getElementById('relatorio-whatsapp-text');
     if (!txtArea) return;
 
-    // Evita duplo clique concorrente se já estiver em processamento
-    if (btnSalvar && btnSalvar.disabled) return;
+    // Se estiver na aba Boletim, a ação é RECALCULAR / ATUALIZAR apuração com os dados mais recentes
+    if (tabAtual === 'boletim') {
+      if (btnSalvar && btnSalvar.disabled) return;
+      if (btnSalvar) {
+        btnSalvar.disabled = true;
+        btnSalvar.innerHTML = '⏳ Recalculando...';
+      }
+      atualizarTextoMensagemWhatsApp(true);
+      if (btnSalvar) {
+        btnSalvar.innerHTML = '✅ Boletim Atualizado!';
+        btnSalvar.style.backgroundColor = '#10b981';
+        btnSalvar.style.borderColor = '#10b981';
+        btnSalvar.style.color = '#ffffff';
+        setTimeout(() => {
+          if (btnSalvar) {
+            btnSalvar.disabled = false;
+            atualizarBotoesAbaWhatsApp('boletim');
+          }
+        }, 1800);
+      }
+      mostrarNotificacaoToast('📊 Boletim recalculado com todos os sorteios e pontuações!');
+      return;
+    }
 
+    // Nas outras abas de comunicado, persiste o modelo padrão customizado
+    if (btnSalvar && btnSalvar.disabled) return;
     const valor = txtArea.value;
-    const tabAtual = state.abaMensagemWhatsAppAtiva || 'boletim';
     const nomeAba = getNomeAbaWhatsApp(tabAtual);
     const originalText = '💾 Salvar Modelo';
 
@@ -2826,6 +2907,7 @@ function setupEventListeners() {
         state.textosWhatsAppCustomizados = {};
       }
       state.textosWhatsAppCustomizados[tabAtual] = valor;
+      delete state.textosWhatsAppCustomizados.boletim; // Proteção garantida contra congelamento do boletim
 
       // Sincroniza a chave Pix se o usuário tiver preenchido no input de parâmetros
       const inputPix = document.getElementById('msg-param-pix');
@@ -2855,6 +2937,7 @@ function setupEventListeners() {
 
       const agora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
       atualizarBadgeStatusMensagem('customizado', agora);
+      atualizarBotoesAbaWhatsApp(tabAtual);
 
       if (btnSalvar) {
         btnSalvar.innerHTML = salvou !== false ? '✅ Modelo Salvo com Sucesso!' : '💾 Salvo Localmente';
@@ -2865,10 +2948,7 @@ function setupEventListeners() {
         setTimeout(() => {
           if (btnSalvar) {
             btnSalvar.disabled = false;
-            btnSalvar.innerHTML = originalText;
-            btnSalvar.style.backgroundColor = '';
-            btnSalvar.style.borderColor = '';
-            btnSalvar.style.color = '';
+            atualizarBotoesAbaWhatsApp(tabAtual);
             btnSalvar.style.opacity = '1';
           }
         }, 2200);
@@ -2889,9 +2969,31 @@ function setupEventListeners() {
     }
   };
 
+  // Função Global: Restaurar Modelo Padrão de Comunicados
+  window.restaurarModeloWhatsApp = async function() {
+    const tabAtual = state.abaMensagemWhatsAppAtiva || 'boletim';
+    if (tabAtual === 'boletim') return;
+    const nomeAba = getNomeAbaWhatsApp(tabAtual);
+
+    if (state.textosWhatsAppCustomizados && state.textosWhatsAppCustomizados[tabAtual]) {
+      delete state.textosWhatsAppCustomizados[tabAtual];
+    }
+    try {
+      localStorage.setItem('senaclube_textos_whatsapp', JSON.stringify(state.textosWhatsAppCustomizados));
+    } catch (e) {}
+
+    await salvarEstado();
+    atualizarTextoMensagemWhatsApp(true);
+    mostrarNotificacaoToast(`🔄 Modelo padrão de "${nomeAba}" restaurado!`);
+  };
+
   // Listeners de clique para os botões do modal de mensagens
   document.getElementById('btn-salvar-texto-whatsapp')?.addEventListener('click', () => {
     window.salvarModeloWhatsApp();
+  });
+
+  document.getElementById('btn-restaurar-texto-whatsapp')?.addEventListener('click', () => {
+    window.restaurarModeloWhatsApp();
   });
 
   // Atualiza em tempo real ao alterar qualquer campo dos parâmetros de comunicado (data, hora, pix)
