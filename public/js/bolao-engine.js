@@ -9,16 +9,16 @@
  */
 
 const PALETA_CONCURSOS = [
-  { bg: '#facc15', text: '#1a1600', name: 'Amarelo Ouro' },      // 1º Concurso
-  { bg: '#10b981', text: '#ffffff', name: 'Verde Esmeralda' },  // 2º Concurso
-  { bg: '#06b6d4', text: '#00222a', name: 'Ciano Elétrico' },   // 3º Concurso
-  { bg: '#f97316', text: '#ffffff', name: 'Laranja Solar' },    // 4º Concurso
-  { bg: '#f43f5e', text: '#ffffff', name: 'Rosa Carmim' },      // 5º Concurso
-  { bg: '#38bdf8', text: '#001e33', name: 'Azul Celeste' },     // 6º Concurso
-  { bg: '#a3e635', text: '#132200', name: 'Verde Lima' },       // 7º Concurso
-  { bg: '#c084fc', text: '#1c0033', name: 'Lavanda Brilhante' },// 8º Concurso
-  { bg: '#fb7185', text: '#ffffff', name: 'Coral Suave' },      // 9º Concurso
-  { bg: '#e879f9', text: '#2e0036', name: 'Magenta Vivo' }      // 10º Concurso
+  { bg: '#facc15', text: '#18181b', name: 'Amarelo Ouro' },    // 1º Concurso (Amarelo)
+  { bg: '#2563eb', text: '#ffffff', name: 'Azul Royal' },       // 2º Concurso (Azul)
+  { bg: '#dc2626', text: '#ffffff', name: 'Vermelho Carmim' }, // 3º Concurso (Vermelho)
+  { bg: '#16a34a', text: '#ffffff', name: 'Verde Esmeralda' }, // 4º Concurso (Verde)
+  { bg: '#ea580c', text: '#ffffff', name: 'Laranja Solar' },   // 5º Concurso (Laranja)
+  { bg: '#7c3aed', text: '#ffffff', name: 'Roxo Violeta' },    // 6º Concurso (Roxo)
+  { bg: '#06b6d4', text: '#082f49', name: 'Ciano Elétrico' },  // 7º Concurso (Ciano)
+  { bg: '#db2777', text: '#ffffff', name: 'Rosa Choque' },     // 8º Concurso (Rosa)
+  { bg: '#78350f', text: '#ffffff', name: 'Marrom Café' },     // 9º Concurso (Marrom)
+  { bg: '#475569', text: '#ffffff', name: 'Cinza Grafite' }    // 10º Concurso (Cinza)
 ];
 
 const BolaoEngine = {

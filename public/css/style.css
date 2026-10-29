@@ -32,21 +32,25 @@
   --text-muted: #64748b;
 
   --color-conc-0: #facc15;
-  --text-conc-0: #1a1600;
-  --color-conc-1: #10b981;
+  --text-conc-0: #18181b;
+  --color-conc-1: #2563eb;
   --text-conc-1: #ffffff;
-  --color-conc-2: #06b6d4;
-  --text-conc-2: #00222a;
-  --color-conc-3: #f97316;
+  --color-conc-2: #dc2626;
+  --text-conc-2: #ffffff;
+  --color-conc-3: #16a34a;
   --text-conc-3: #ffffff;
-  --color-conc-4: #f43f5e;
+  --color-conc-4: #ea580c;
   --text-conc-4: #ffffff;
-  --color-conc-5: #38bdf8;
-  --text-conc-5: #001e33;
-  --color-conc-6: #a3e635;
-  --text-conc-6: #132200;
-  --color-conc-7: #c084fc;
-  --text-conc-7: #1c0033;
+  --color-conc-5: #7c3aed;
+  --text-conc-5: #ffffff;
+  --color-conc-6: #06b6d4;
+  --text-conc-6: #082f49;
+  --color-conc-7: #db2777;
+  --text-conc-7: #ffffff;
+  --color-conc-8: #78350f;
+  --text-conc-8: #ffffff;
+  --color-conc-9: #475569;
+  --text-conc-9: #ffffff;
 
   --radius-sm: 6px;
   --radius-md: 10px;

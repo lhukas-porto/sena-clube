@@ -289,16 +289,18 @@ const ExportShare = {
       subtituloTipo = `Planilha de Apostas (${apostasFiltradas.length} jogos em 4 colunas)`;
     }
 
-    // Cores de alta legibilidade para cada concurso
+    // Cores de alta legibilidade e máximo contraste para cada concurso (10 famílias completamente distintas)
     const coresConcursos = [
-      { bg: '#fef08a', text: '#713f12', border: '#eab308' }, // Amarelo
-      { bg: '#bbf7d0', text: '#14532d', border: '#22c55e' }, // Verde
-      { bg: '#bae6fd', text: '#0c4a6e', border: '#0ea5e9' }, // Azul
-      { bg: '#fed7aa', text: '#7c2d12', border: '#f97316' }, // Laranja
-      { bg: '#fecdd3', text: '#881337', border: '#f43f5e' }, // Rosa
-      { bg: '#e9d5ff', text: '#581c87', border: '#a855f7' }, // Roxo
-      { bg: '#ccfbf1', text: '#134e4a', border: '#14b8a6' }, // Ciano
-      { bg: '#d9f99d', text: '#365314', border: '#84cc16' }  // Lima
+      { bg: '#fef08a', text: '#713f12', border: '#eab308' }, // 1º Amarelo
+      { bg: '#bfdbfe', text: '#1e3a8a', border: '#3b82f6' }, // 2º Azul
+      { bg: '#fecaca', text: '#7f1d1d', border: '#ef4444' }, // 3º Vermelho
+      { bg: '#bbf7d0', text: '#14532d', border: '#22c55e' }, // 4º Verde
+      { bg: '#fed7aa', text: '#7c2d12', border: '#ea580c' }, // 5º Laranja
+      { bg: '#e9d5ff', text: '#581c87', border: '#7c3aed' }, // 6º Roxo
+      { bg: '#a5f3fc', text: '#164e63', border: '#0891b2' }, // 7º Ciano
+      { bg: '#fbcfe8', text: '#831843', border: '#db2777' }, // 8º Rosa Choque
+      { bg: '#f5d0b5', text: '#451a03', border: '#78350f' }, // 9º Marrom
+      { bg: '#e2e8f0', text: '#1e293b', border: '#475569' }  // 10º Grafite
     ];
 
     // Mapa de dezenas sorteadas para conferência ultra rápida O(1)
