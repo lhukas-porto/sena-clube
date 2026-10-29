@@ -3,7 +3,10 @@ import {
   generateToken,
   verifyToken,
   updateAdminCredentials,
-  getAdminProfile
+  getAdminProfile,
+  checkRateLimit,
+  recordLoginAttempt,
+  loadStoredCredentials
 } from './_auth.js';
 
 export default async function handler(req, res) {
@@ -15,6 +18,8 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     return res.status(204).end();
   }
+
+  const clientIp = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'global').split(',')[0].trim();
 
   // --- GET: Perfil do Administrador ---
   if (req.method === 'GET') {
@@ -74,6 +79,16 @@ export default async function handler(req, res) {
   // --- POST: Login Normal de Administrador ---
   if (req.method === 'POST') {
     try {
+      // 1. Rate Limiting Check
+      const rateCheck = checkRateLimit(clientIp);
+      if (!rateCheck.allowed) {
+        return res.status(429).json({
+          success: false,
+          error: rateCheck.error,
+          remainingSeconds: rateCheck.remainingSeconds
+        });
+      }
+
       const username = body.username || body.usuario || 'admin';
       const password = body.password || body.senha;
 
@@ -87,13 +102,17 @@ export default async function handler(req, res) {
       const isValid = await verifyAdminLogin(username, password);
 
       if (!isValid) {
+        recordLoginAttempt(clientIp, false);
         return res.status(401).json({
           success: false,
           error: 'Credencial inválida. Usuário ou senha incorretos.'
         });
       }
 
-      const token = generateToken();
+      recordLoginAttempt(clientIp, true);
+      const stored = await loadStoredCredentials();
+      const token = generateToken(stored ? stored.tokenVersion : 1, stored ? stored.updatedAt : null);
+
       return res.status(200).json({
         success: true,
         message: 'Autenticado com sucesso!',

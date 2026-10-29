@@ -753,7 +753,7 @@ const ExportShare = {
       <div class="row-financeiro">
         <span>👥 <strong>Apostas:</strong> ${financeiro.totalApostas} (${financeiro.pagas} pagas)</span>
         <span>💵 <strong>Arrecadação:</strong> R$ ${financeiro.totalArrecadadoBruto.toFixed(2).replace('.', ',')}</span>
-        <span>💼 <strong>Taxa 20%:</strong> R$ ${financeiro.valorOrganizadorArrecadado.toFixed(2).replace('.', ',')}</span>
+        <span>💼 <strong>Taxa ${financeiro.percentualFormatado || '20%'}:</strong> R$ ${financeiro.valorOrganizadorArrecadado.toFixed(2).replace('.', ',')}</span>
         <span class="highlight-fin">🏆 <strong>Prêmio Sena:</strong> R$ ${financeiro.premioSenaLiquido.toFixed(2).replace('.', ',')}</span>
         ${financeiro.valorPagoQuadra > 0 ? `<span class="quadra-fin">🎯 <strong>Quadra Paga:</strong> R$ ${financeiro.valorPagoQuadra.toFixed(2).replace('.', ',')}</span>` : ''}
       </div>

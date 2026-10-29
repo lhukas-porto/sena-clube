@@ -58,7 +58,7 @@ function getCicloVisualizado() {
       concursoInicial: 3064,
       concursoFinal: null,
       valorCota: 30.0,
-      taxaOrganizador: state.taxaOrganizadorGlobal || 0.20,
+      taxaOrganizador: typeof state.taxaOrganizadorGlobal === 'number' ? state.taxaOrganizadorGlobal : 0.20,
       premioQuadra: 0.0,
       concursos: [],
       apostas: [],
@@ -313,22 +313,13 @@ async function salvarEstado(force = false) {
 
     // Se houve conflito de concorrência com outro dispositivo
     if (res.status === 409) {
-      if (resData.serverVersion && resData.serverVersion >= state.version) {
-        state.version = resData.serverVersion;
-        const retryRes = await fetch('/api/bolao', {
-          method: 'POST',
-          headers: { ...headers, 'X-Force-Save': 'true' },
-          body: JSON.stringify({ ...payload, version: state.version, forceSave: true })
-        });
-        if (retryRes.ok) {
-          const retryData = await retryRes.json().catch(() => ({}));
-          if (typeof retryData.version === 'number') state.version = retryData.version;
-          atualizarIndicadorStatusNuvem(true);
-          return true;
-        }
-      }
+      if (resData.serverVersion) state.version = resData.serverVersion;
       atualizarIndicadorStatusNuvem(false, 'Conflito de versão');
-      mostrarNotificacaoToast('⚠️ Conflito de Concorrência: recarregue a página para obter a versão mais recente.');
+      const msg = resData.error || 'Conflito de Concorrência: os dados foram atualizados em outro dispositivo.';
+      mostrarNotificacaoToast('⚠️ ' + msg);
+      if (confirm(`${msg}\n\nDeseja recarregar a página para carregar as alterações mais recentes e evitar sobrescrever o trabalho de outro administrador?`)) {
+        window.location.reload();
+      }
       return false;
     }
 
@@ -408,52 +399,11 @@ async function carregarEstado() {
     }
   }
 
-  // 3. SMART MERGE: Preservar e fundir apostas locais que possam ter ficado salvas apenas neste navegador
-  let apostasResgatadasTotal = 0;
-  if (Array.isArray(localCiclos) && localCiclos.length > 0) {
-    if (!Array.isArray(state.ciclos) || state.ciclos.length === 0) {
-      state.ciclos = localCiclos;
-      apostasResgatadasTotal = (localCiclos[0].apostas || []).length;
-    } else {
-      localCiclos.forEach(localCiclo => {
-        let serverCiclo = state.ciclos.find(sc => sc.id === localCiclo.id);
-        if (!serverCiclo && state.ciclos.length > 0) {
-          serverCiclo = state.ciclos[0];
-        }
-        if (serverCiclo && Array.isArray(localCiclo.apostas) && localCiclo.apostas.length > 0) {
-          if (!Array.isArray(serverCiclo.apostas)) serverCiclo.apostas = [];
-          
-          localCiclo.apostas.forEach(localAp => {
-            const jaExiste = serverCiclo.apostas.some(sa => 
-              sa.id === localAp.id || 
-              (sa.nome === localAp.nome && Array.isArray(sa.dezenas) && Array.isArray(localAp.dezenas) && sa.dezenas.join(',') === localAp.dezenas.join(','))
-            );
-            if (!jaExiste) {
-              serverCiclo.apostas.push(localAp);
-              apostasResgatadasTotal++;
-            }
-          });
-        }
-      });
-    }
-  }
-
-  // 4. Se recuperou apostas locais não sincronizadas:
-  if (apostasResgatadasTotal > 0) {
-    console.info(`[SenaClube] 🔄 Smart Merge: ${apostasResgatadasTotal} aposta(s) resgatadas do cache local.`);
-    if (state.isAdmin) {
-      salvarEstado(true).then(ok => {
-        if (ok) {
-          mostrarNotificacaoToast(`☁️ ${apostasResgatadasTotal} aposta(s) do seu navegador foram sincronizadas com a nuvem!`);
-          atualizarIndicadorStatusNuvem(true);
-        } else {
-          atualizarIndicadorStatusNuvem(false, 'Pendente de envio');
-        }
-      });
-    } else {
-      atualizarIndicadorStatusNuvem(false, `${apostasResgatadasTotal} aposta(s) apenas local`);
-      mostrarNotificacaoToast(`⚠️ Há ${apostasResgatadasTotal} aposta(s) salva(s) apenas neste computador. Faça login como Admin para sincronizar.`);
-    }
+  // 3. Inicialização e Backup Resiliente
+  // Se o servidor não retornou ciclos mas temos cache local offline disponível:
+  if ((!Array.isArray(state.ciclos) || state.ciclos.length === 0) && Array.isArray(localCiclos) && localCiclos.length > 0) {
+    state.ciclos = localCiclos;
+    atualizarIndicadorStatusNuvem(false, 'Carregado do cache local');
   } else {
     atualizarIndicadorStatusNuvem(true);
   }
@@ -502,7 +452,7 @@ function renderApp() {
   const quadraPremiada = apuracaoCompleta.ganhadoresQuadraPrimeiroSorteio && apuracaoCompleta.ganhadoresQuadraPrimeiroSorteio.length > 0;
   const financeiro = BolaoEngine.calcularFinanceiro(ciclo.apostas, ciclo.valorCota, taxa, premioQuadra, quadraPremiada, isDinamico);
 
-  // ENCERRAMENTO IMEDIATO DO CICLO SE IDENTIFICADO 1 OU MAIS GANHADORES DA SENA (6 ACERTOS)
+  // Visualização de encerramento do ciclo se identificado ganhador da Sena
   if (apuracaoCompleta.temVencedorSena && ciclo.status !== 'finalizado') {
     ciclo.status = 'finalizado';
     ciclo.finalizadoEm = ciclo.finalizadoEm || new Date().toISOString();
@@ -510,7 +460,6 @@ function renderApp() {
       ciclo.concursoFinal = ciclo.concursos[ciclo.concursos.length - 1].numero;
     }
     ciclo.ganhadorSenaNome = apuracaoCompleta.ganhadoresSena.map(g => g.nome).join(', ');
-    salvarEstado();
   }
 
   // Verifica se o usuário selecionou uma apuração retroativa/passo a passo (filtro até o N-ésimo concurso)
@@ -1123,16 +1072,17 @@ function renderTabelaApostas(ciclo, apuracao) {
     }
 
     const dezenasHtml = (aposta.dezenasDetalhes || []).map(dez => {
+      const numSeguro = escapeHTML(String(dez.numero || '').padStart(2, '0'));
       if (dez.acertou) {
         return `
-          <div class="dezena-ball hit" style="background-color: ${dez.bg}; color: ${dez.text};" title="Sorteado no Concurso ${dez.concursoNumero}">
-            ${dez.numero}
+          <div class="dezena-ball hit" style="background-color: ${escapeHTML(dez.bg || '')}; color: ${escapeHTML(dez.text || '')};" title="Sorteado no Concurso ${escapeHTML(dez.concursoNumero || '')}">
+            ${numSeguro}
           </div>
         `;
       }
       return `
         <div class="dezena-ball">
-          ${dez.numero}
+          ${numSeguro}
         </div>
       `;
     }).join('');
@@ -1145,8 +1095,8 @@ function renderTabelaApostas(ciclo, apuracao) {
     const isBloqueado = isApostasFechadas(ciclo);
     const isConfirmada = !!(aposta.confirmada || aposta.pago);
     const pagoHtml = isConfirmada
-      ? `<button class="payment-toggle pago" onclick="togglePagamentoAposta('${aposta.id}')" ${isBloqueado ? 'disabled' : ''} title="${isBloqueado ? 'Apostas fechadas (bloqueado contra alterações)' : 'Aposta confirmada'}">✅ Confirmada</button>`
-      : `<button class="payment-toggle pendente" onclick="togglePagamentoAposta('${aposta.id}')" ${isBloqueado ? 'disabled' : ''} title="${isBloqueado ? 'Apostas fechadas (bloqueado contra alterações)' : 'Aguardando confirmação'}">⏳ Aguardando</button>`;
+      ? `<button class="payment-toggle pago" data-action="toggle-pagamento" data-id="${escapeHTML(aposta.id)}" ${isBloqueado ? 'disabled' : ''} title="${isBloqueado ? 'Apostas fechadas (bloqueado contra alterações)' : 'Aposta confirmada'}">✅ Confirmada</button>`
+      : `<button class="payment-toggle pendente" data-action="toggle-pagamento" data-id="${escapeHTML(aposta.id)}" ${isBloqueado ? 'disabled' : ''} title="${isBloqueado ? 'Apostas fechadas (bloqueado contra alterações)' : 'Aguardando confirmação'}">⏳ Aguardando</button>`;
 
     const origemBadge = state.isAdmin ? (
       aposta.origem === 'nova' 
@@ -1187,8 +1137,8 @@ function renderTabelaApostas(ciclo, apuracao) {
         <td class="td-status admin-only">${pagoHtml}</td>
         <td class="td-acoes admin-only">
           ${!isBloqueado ? `
-            <button class="btn-table-action" onclick="editarAposta('${escapeHTML(aposta.id)}')" title="Editar">✏️</button>
-            <button class="btn-table-action delete" onclick="excluirAposta('${escapeHTML(aposta.id)}')" title="Excluir">🗑️</button>
+            <button class="btn-table-action" data-action="editar-aposta" data-id="${escapeHTML(aposta.id)}" title="Editar">✏️</button>
+            <button class="btn-table-action delete" data-action="excluir-aposta" data-id="${escapeHTML(aposta.id)}" title="Excluir">🗑️</button>
           ` : `<span style="display: inline-flex; align-items: center; gap: 4px; color: var(--text-muted); font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.05);" title="Apostas fechadas nesta edição. Alterações não permitidas nem mesmo pelo administrador.">🔒 Fechada</span>`}
         </td>
       ` : ''}
@@ -1197,6 +1147,26 @@ function renderTabelaApostas(ciclo, apuracao) {
   });
 
   tbody.appendChild(fragment);
+
+  // Event Delegation para ações da tabela (elimina inline onclick com interpolação de ID)
+  if (!tbody._delegatedActionsInitialized) {
+    tbody.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-action]');
+      if (!btn || btn.disabled) return;
+      const action = btn.getAttribute('data-action');
+      const id = btn.getAttribute('data-id');
+      if (!id) return;
+
+      if (action === 'toggle-pagamento') {
+        window.togglePagamentoAposta(id);
+      } else if (action === 'editar-aposta') {
+        window.editarAposta(id);
+      } else if (action === 'excluir-aposta') {
+        window.excluirAposta(id);
+      }
+    });
+    tbody._delegatedActionsInitialized = true;
+  }
 }
 
 // ==========================================================================
@@ -1214,26 +1184,14 @@ function verificarAlertasEspeciais(ciclo, apuracao) {
       exibirModalQuadra(apuracao.ganhadoresQuadraPrimeiroSorteio);
       ciclo.alertasExibidos.quadraCicloId = cicloIdStr;
       ciclo.ganhadorQuadraNome = apuracao.ganhadoresQuadraPrimeiroSorteio.map(g => g.nome).join(', ');
-      salvarEstado();
     }
   }
 
-  // 2. Sena (6 números) - ENCERRAMENTO AUTOMÁTICO DO CICLO
+  // 2. Sena (6 números) - Exibição do Modal de Celebração
   if (apuracao.temVencedorSena) {
-    if (ciclo.status !== 'finalizado') {
-      ciclo.status = 'finalizado';
-      ciclo.finalizadoEm = new Date().toISOString();
-      if (ciclo.concursos && ciclo.concursos.length > 0) {
-        ciclo.concursoFinal = ciclo.concursos[ciclo.concursos.length - 1].numero;
-      }
-      ciclo.ganhadorSenaNome = apuracao.ganhadoresSena.map(g => g.nome).join(', ');
-      salvarEstado();
-    }
-
     if (ciclo.alertasExibidos.senaCicloId !== cicloIdStr) {
       exibirModalSena(apuracao.ganhadoresSena, ciclo);
       ciclo.alertasExibidos.senaCicloId = cicloIdStr;
-      salvarEstado();
     }
   }
 }
@@ -1540,7 +1498,7 @@ function setupEventListeners() {
 
     const cotaPadrao = ultimoCiclo.valorCota || 30.0;
     const pagasEstimadas = (ultimoCiclo.apostas || []).filter(a => a.pago).length;
-    const taxa = typeof ultimoCiclo.taxaOrganizador === 'number' ? ultimoCiclo.taxaOrganizador : (state.taxaOrganizadorGlobal || 0.20);
+    const taxa = typeof ultimoCiclo.taxaOrganizador === 'number' ? ultimoCiclo.taxaOrganizador : (typeof state.taxaOrganizadorGlobal === 'number' ? state.taxaOrganizadorGlobal : 0.20);
     // Dinâmico: 10% do valor líquido das apostas pagas (se 0 pagas, prêmio é 0)
     const quadraPadrao = BolaoEngine.calcularPremioQuadraPadrao(pagasEstimadas, cotaPadrao, taxa);
 
@@ -1569,7 +1527,7 @@ function setupEventListeners() {
     const ultimoCiclo = state.ciclos[state.ciclos.length - 1] || getCicloVisualizado();
     const pagas = (ultimoCiclo.apostas || []).filter(a => a.pago).length;
     const cota = parseFloat(document.getElementById('novo-ciclo-cota').value) || 30.0;
-    const taxa = state.taxaOrganizadorGlobal || 0.20;
+    const taxa = typeof state.taxaOrganizadorGlobal === 'number' ? state.taxaOrganizadorGlobal : 0.20;
     const valor = BolaoEngine.calcularPremioQuadraPadrao(pagas, cota, taxa);
     document.getElementById('novo-ciclo-premio-quadra').value = valor;
     mostrarNotificacaoToast(`⚡ Prêmio da Quadra calculado (10% do líquido de ${pagas} cota(s) paga(s)): R$ ${valor.toFixed(2).replace('.', ',')}`);
@@ -1580,7 +1538,7 @@ function setupEventListeners() {
     const cota = parseFloat(e.target.value) || 0;
     const ultimoCiclo = state.ciclos[state.ciclos.length - 1] || getCicloVisualizado();
     const pagas = (ultimoCiclo.apostas || []).filter(a => a.pago).length;
-    const taxa = state.taxaOrganizadorGlobal || 0.20;
+    const taxa = typeof state.taxaOrganizadorGlobal === 'number' ? state.taxaOrganizadorGlobal : 0.20;
     const valor = BolaoEngine.calcularPremioQuadraPadrao(pagas, cota, taxa);
     document.getElementById('novo-ciclo-premio-quadra').value = valor;
   });
@@ -1623,7 +1581,7 @@ function setupEventListeners() {
       }));
     }
 
-    const taxaOrg = state.taxaOrganizadorGlobal || 0.20;
+    const taxaOrg = typeof state.taxaOrganizadorGlobal === 'number' ? state.taxaOrganizadorGlobal : 0.20;
     let premioQuadra = parseFloat(document.getElementById('novo-ciclo-premio-quadra').value);
     if (isNaN(premioQuadra) || premioQuadra < 0) {
       premioQuadra = 0.0;
@@ -1763,7 +1721,7 @@ function setupEventListeners() {
   document.getElementById('btn-configuracoes').addEventListener('click', () => {
     const ciclo = getCicloVisualizado();
     const cota = ciclo.valorCota ?? 30.0;
-    const taxa = (ciclo.taxaOrganizador !== undefined ? ciclo.taxaOrganizador : state.taxaOrganizadorGlobal) || 0.20;
+    const taxa = (ciclo.taxaOrganizador !== undefined ? ciclo.taxaOrganizador : state.taxaOrganizadorGlobal) ?? 0.20;
     
     // Verifica se a quadra é dinâmica (padrão é dinâmico se premioQuadraDinamico !== false)
     let isDinamico = ciclo.premioQuadraDinamico !== false;
@@ -2394,6 +2352,14 @@ function setupEventListeners() {
     });
 
     ciclo.concursos.sort((a, b) => a.numero - b.numero);
+
+    const apuracaoConcurso = BolaoEngine.apurar(ciclo.apostas, ciclo.concursos);
+    if (apuracaoConcurso.temVencedorSena && ciclo.status !== 'finalizado') {
+      ciclo.status = 'finalizado';
+      ciclo.finalizadoEm = new Date().toISOString();
+      ciclo.concursoFinal = ciclo.concursos[ciclo.concursos.length - 1].numero;
+      ciclo.ganhadorSenaNome = apuracaoConcurso.ganhadoresSena.map(g => g.nome).join(', ');
+    }
 
     salvarEstado();
     fecharModal('modal-sorteio');
@@ -3166,11 +3132,9 @@ function setupEventListeners() {
           fecharModal('modal-login-admin');
           mostrarNotificacaoToast(`👑 Modo Administrador Ativado (${data.username || 'Admin'})!`);
           renderApp();
-          // Sincroniza qualquer aposta local que ainda não estava na nuvem
-          salvarEstado(true).then(ok => {
-            if (ok) {
-              mostrarNotificacaoToast('☁️ Apostas e dados sincronizados com a nuvem!');
-            }
+          // Atualiza dados a partir da nuvem com as permissões de administrador
+          carregarDadosDoServidor().then(() => {
+            renderApp();
           });
         } else {
           if (errBox) {
@@ -3680,7 +3644,7 @@ function excluirCicloPorId(cicloId) {
       concursoInicial: ciclo.concursoInicial || 3058,
       concursoFinal: null,
       valorCota: ciclo.valorCota || 24.0,
-      taxaOrganizador: typeof ciclo.taxaOrganizador === 'number' ? ciclo.taxaOrganizador : (state.taxaOrganizadorGlobal || 0.20),
+      taxaOrganizador: typeof ciclo.taxaOrganizador === 'number' ? ciclo.taxaOrganizador : (typeof state.taxaOrganizadorGlobal === 'number' ? state.taxaOrganizadorGlobal : 0.20),
       premioQuadra: ciclo.premioQuadra || 0.0,
       concursos: [],
       apostas: apostasPreservadas,
@@ -3786,7 +3750,7 @@ function iniciarNovoCicloAutomatico(concursoInicial) {
   })) : [];
 
   const valorCota = ultimoCiclo ? (ultimoCiclo.valorCota || 30.0) : 30.0;
-  const taxa = state.taxaOrganizadorGlobal || 0.20;
+  const taxa = typeof state.taxaOrganizadorGlobal === 'number' ? state.taxaOrganizadorGlobal : 0.20;
   const pagasIniciais = apostasBase.filter(a => a.pago).length;
   const premioQuadraPadrao = BolaoEngine.calcularPremioQuadraPadrao(pagasIniciais, valorCota, taxa);
 
@@ -3859,6 +3823,15 @@ async function sincronizarProximoConcursoCaixa() {
     });
 
     ciclo.concursos.sort((a, b) => a.numero - b.numero);
+
+    const apuracaoCaixa = BolaoEngine.apurar(ciclo.apostas, ciclo.concursos);
+    if (apuracaoCaixa.temVencedorSena && ciclo.status !== 'finalizado') {
+      ciclo.status = 'finalizado';
+      ciclo.finalizadoEm = new Date().toISOString();
+      ciclo.concursoFinal = ciclo.concursos[ciclo.concursos.length - 1].numero;
+      ciclo.ganhadorSenaNome = apuracaoCaixa.ganhadoresSena.map(g => g.nome).join(', ');
+    }
+
     salvarEstado();
     renderApp();
 

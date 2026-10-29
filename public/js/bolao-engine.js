@@ -1,8 +1,11 @@
 /**
  * SenaClube — Motor de Regras e Apuração do Bolão (BolaoEngine)
  * Gerencia ciclo de sorteios, acertos acumulados, cores por concurso,
- * regras financeiras (taxa de 20% do organizador, prêmio da quadra dedutível e prêmio da sena)
+ * regras financeiras (suporte a taxa 0%, retenção configurável, prêmio da quadra dedutível e prêmio da sena)
  * e comparação inteligente de apostas entre ciclos.
+ * 
+ * Regra de Negócio: Preserva fielmente os acertos acumulados entre múltiplos sorteios
+ * e a premiação própria do bolão (Sena acumulada e Quadra no 1º sorteio).
  */
 
 const PALETA_CONCURSOS = [
@@ -79,13 +82,20 @@ const BolaoEngine = {
         acertosNoPrimeiroSorteio = dezenasDetalhes.filter(d => dezenasPrimeiroConcurso.has(d.numero)).length;
       }
 
+      // Regra de Integridade: Apostas comprovadamente pendentes/não pagas não concorrem a prêmios
+      const isEligible = aposta.pago === true || aposta.confirmada === true || (aposta.pago === undefined && aposta.confirmada === undefined);
+
+      const isSenaCandidate = totalAcertos >= 6;
+      const isQuadraCandidate = acertosNoPrimeiroSorteio >= 4;
+
       const itemApurado = {
         ...aposta,
         dezenasDetalhes,
         totalAcertos,
         acertosNoPrimeiroSorteio,
-        isSenaWinner: totalAcertos >= 6,
-        isQuadraFirstRound: acertosNoPrimeiroSorteio >= 4
+        isEligible,
+        isSenaWinner: isSenaCandidate && isEligible,
+        isQuadraFirstRound: isQuadraCandidate && isEligible
       };
 
       if (totalAcertos > maiorPontuacao) {
@@ -117,17 +127,20 @@ const BolaoEngine = {
   },
 
   /**
-   * Calcula totais financeiros com dedução de 20% do organizador e dedução da Quadra quando premiada
+   * Calcula totais financeiros com dedução da taxa do organizador e dedução da Quadra quando premiada.
+   * Suporte completo a taxa zero (0%).
    * @param {Array} apostas Lista de apostas
    * @param {number} valorCota Valor de cada jogo
-   * @param {number} percentualOrganizador Percentual da taxa do organizador
+   * @param {number} percentualOrganizador Percentual da taxa do organizador (ex: 0.20 ou 0)
    * @param {number} premioQuadraConfig Valor estipulado para a quadra no 1º sorteio
    * @param {boolean} quadraPremiada Se houve ganhador da quadra na abertura
    * @param {boolean} premioQuadraDinamico Se o prêmio é 10% dinâmico do líquido arrecadado de apostas pagas
    */
   calcularFinanceiro(apostas = [], valorCota = 24.0, percentualOrganizador = 0.20, premioQuadraConfig = 0.0, quadraPremiada = false, premioQuadraDinamico = true) {
+    const taxaOrg = typeof percentualOrganizador === 'number' ? percentualOrganizador : 0.20;
     const totalApostas = apostas.length;
-    const pagas = apostas.filter(a => a.pago).length;
+    // Consistência estrita entre pago e confirmada
+    const pagas = apostas.filter(a => !!(a.pago || a.confirmada)).length;
     const pendentes = totalApostas - pagas;
 
     // Valores Brutos
@@ -135,16 +148,15 @@ const BolaoEngine = {
     const totalPendenteBruto = pendentes * valorCota;
     const totalGeralPrevisto = totalApostas * valorCota;
 
-    // Taxa do Organizador (ex: 20%)
-    const valorOrganizadorArrecadado = totalArrecadadoBruto * percentualOrganizador;
-    const valorOrganizadorPrevisto = totalGeralPrevisto * percentualOrganizador;
+    // Taxa do Organizador (suporta 0.0 perfeitamente)
+    const valorOrganizadorArrecadado = totalArrecadadoBruto * taxaOrg;
+    const valorOrganizadorPrevisto = totalGeralPrevisto * taxaOrg;
 
     // Total Líquido Geral (Bruto - Taxa)
     const totalLiquidoGeralArrecadado = totalArrecadadoBruto - valorOrganizadorArrecadado;
     const totalLiquidoGeralPrevisto = totalGeralPrevisto - valorOrganizadorPrevisto;
 
     // Regra da Quadra: Se for dinâmico, calcula estritamente 10% do líquido das apostas pagas!
-    // Se for manual/fixo, utiliza o valor estipulado pelo organizador.
     let valorPremioQuadraConfig = 0.0;
     if (premioQuadraDinamico) {
       valorPremioQuadraConfig = Math.round(totalLiquidoGeralArrecadado * 0.10 * 100) / 100;
@@ -154,7 +166,6 @@ const BolaoEngine = {
 
     let valorPagoQuadra = 0.0;
     if (quadraPremiada && valorPremioQuadraConfig > 0) {
-      // Deduz o prêmio da quadra do montante líquido arrecadado
       valorPagoQuadra = Math.min(valorPremioQuadraConfig, totalLiquidoGeralArrecadado);
     }
 
@@ -165,7 +176,7 @@ const BolaoEngine = {
       : valorPremioQuadraConfig;
     const premioSenaPrevisto = totalLiquidoGeralPrevisto - (quadraPremiada ? valorPagoQuadra : 0.0);
 
-    const nomesUnicos = new Set(apostas.map(a => a.nome.trim().toLowerCase())).size;
+    const nomesUnicos = new Set(apostas.map(a => (a.nome || '').trim().toLowerCase())).size;
 
     return {
       totalApostas,
@@ -173,8 +184,8 @@ const BolaoEngine = {
       pagas,
       pendentes,
       valorCota,
-      percentualOrganizador,
-      percentualFormatado: `${Math.round(percentualOrganizador * 100)}%`,
+      percentualOrganizador: taxaOrg,
+      percentualFormatado: `${Math.round(taxaOrg * 100)}%`,
       
       // Valores Brutos
       totalArrecadadoBruto,
@@ -198,8 +209,7 @@ const BolaoEngine = {
 
       // Prêmio Final da Sena (Líquido após dedução da Quadra)
       premioSenaLiquido,
-      premioSenaPrevisto,
-      
+      premioSenaPrevisto
     };
   },
 
@@ -230,8 +240,9 @@ const BolaoEngine = {
    */
   calcularPremioQuadraPadrao(totalApostas = 0, valorCota = 24.0, percentualOrganizador = 0.20) {
     const total = typeof totalApostas === 'number' && !isNaN(totalApostas) && totalApostas > 0 ? totalApostas : 0;
+    const taxaOrg = typeof percentualOrganizador === 'number' ? percentualOrganizador : 0.20;
     const bruto = total * valorCota;
-    const liquido = bruto * (1 - percentualOrganizador);
+    const liquido = bruto * (1 - taxaOrg);
     return Math.round(liquido * 0.10 * 100) / 100;
   },
 

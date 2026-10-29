@@ -1,28 +1,26 @@
-# Plano de Blindagem e Auditoria do SenaClube
+# Tarefas de Blindagem e Correções Técnicas - SenaClube
 
-## Fase 1: Segurança Crítica, Autenticação e Prevenção de XSS (P1)
-- [x] 1.1 Criar endpoint de autenticação `api/auth.js` e integrar em `server.js`
-- [x] 1.2 Proteger `POST /api/bolao` no Vercel e `server.js` com validação de token Bearer
-- [x] 1.3 Atualizar `supabase/migrations/20260925_secure_rls.sql` revogando escrita anônima
-- [x] 1.4 Remover bypass `?admin=1` e credenciais `admin:admin` no frontend `public/js/app.js`
-- [x] 1.5 Implementar `escapeHTML()` e sanitizar todas as interpolações de `innerHTML` no frontend
-
-## Fase 2: Concorrência, Integridade e Proteção de Dados LGPD (P2)
-- [x] 2.1 Implementar Trava Otimista de Concorrência (Anti-Lost Updates) com detecção de versão/timestamp
-- [x] 2.2 Implementar validação de schema e intervalo de dezenas (1-60) no backend
-- [x] 2.3 Proteger e formatar dados sensíveis do organizador (PII/LGPD)
-
-## Fase 3: Headers de Segurança HTTP e Snapshots de Backup (P3)
-- [x] 3.1 Configurar cabeçalhos HTTP OWASP (X-Frame-Options, nosniff, etc.) em `vercel.json` e `server.js`
-- [x] 3.2 Implementar rotina de snapshots/backups automáticos pré-gravação
-
-## Fase 4: Testes Automatizados e Validação Completa (P4)
-- [x] 4.1 Criar suíte de testes unitários para `BolaoEngine` (`tests/bolao-engine.test.js`)
-- [x] 4.2 Criar suíte de testes unitários para `WhatsAppParser` (`tests/whatsapp-parser.test.js`)
-- [x] 4.3 Configurar script `"test": "node --test"` em `package.json` e rodar testes
-- [x] 4.4 Validar interface via browser subagent e testar fluxo de login/salvamento
-
-## Fase 5: Versionamento e Deploy
-- [x] 5.1 Verificar Critic Verification (sem segredos expostos, build OK)
-- [x] 5.2 Commit com Conventional Commits e Push para o GitHub
-- [x] 5.3 Deploy para produção na Vercel e confirmação ao usuário
+- [x] 1. Migrações e Banco de Dados (Supabase)
+  - [x] 1.1 Criar migration `supabase/migrations/20261029_secure_credentials_and_state.sql` (tabela `admin_auth` privada com RLS estrito apenas para `service_role` e remoção de credenciais de `bolao_data`)
+- [x] 2. Autenticação, Sessão e Credenciais
+  - [x] 2.1 Refatorar `api/_auth.js` para usar `admin_auth`, eliminar fallback inseguro em produção, adicionar invalidação de token pós-troca (`token_version`/`auth_updated_at`) e persistência durável
+  - [x] 2.2 Adicionar rate limiting contra brute force em `api/auth.js` e `server.js`
+- [x] 3. Validação Estrita no Backend e Blindagem de Negócio
+  - [x] 3.1 Refatorar `api/_validation.js` com validação de dezenas (1-60, sem duplicatas, inteiros puros), arrays obrigatórios, limites de taxa (0.0 a 1.0) e normalização de dezenas
+  - [x] 3.2 Implementar validação server-side em `api/bolao.js` e `server.js` para impedir alteração de apostas em edições fechadas/finalizadas e verificar horário de fechamento
+  - [x] 3.3 Garantir que `api/bolao.js` e `server.js` nunca retornem 200 falso em caso de falha de persistência (retornar 500/503) e limitar tamanho do body (2MB)
+  - [x] 3.4 Corrigir `api/caixa/[param].js` e `server.js` adicionando timeouts nos fallbacks, validação do concurso retornado e validação das dezenas
+- [x] 4. Regras do Bolão e Concorrência no Frontend
+  - [x] 4.1 Corrigir `public/js/bolao-engine.js` para apurar apenas apostas elegíveis/pagas e suportar taxa 0% (`?? 0.20`)
+  - [x] 4.2 Desacoplar `renderApp` em `public/js/app.js` de chamadas a `salvarEstado()` e mutação de ciclo
+  - [x] 4.3 Eliminar reenvio cego de 409 (`forceSave: true`) e reenvio no login em `public/js/app.js`
+  - [x] 4.4 Refatorar Smart Merge em `public/js/app.js` para respeitar exclusões e nunca ressuscitar apostas ou injetar em ciclos arbitrários
+  - [x] 4.5 Corrigir XSS em `public/js/app.js`: substituir interpolações de dezenas por renderização segura e remover atributos `onclick` inline (event delegation)
+  - [x] 4.6 Corrigir taxa zero em `public/js/app.js` e `public/js/export-share.js` (usar `?? 0.20` e texto dinâmico de taxa)
+- [x] 5. Empacotamento Seguro
+  - [x] 5.1 Adicionar script de empacotamento seguro em `package.json` sem arquivos sensíveis
+- [x] 6. Testes Automatizados e Verificação
+  - [x] 6.1 Implementar suíte de testes de regressão para os 13 pontos em `tests/regression-audit.test.js`
+  - [x] 6.2 Executar suíte completa (`npm test`) e validar 100% dos testes passando (29 de 29)
+- [x] 7. Critic Verification e Finalização
+  - [x] 7.1 Verificar ausência de segredos expostos e consistência final

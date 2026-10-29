@@ -10,7 +10,10 @@ import {
   verifyToken,
   verifyAdminLogin,
   updateAdminCredentials,
-  getAdminProfile
+  getAdminProfile,
+  checkRateLimit,
+  recordLoginAttempt,
+  loadStoredCredentials
 } from './api/_auth.js';
 import { validateBolaoPayload, sanitizePayload } from './api/_validation.js';
 
@@ -22,8 +25,9 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const DATA_DIR = path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'senaclube.json');
 const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
+const MAX_BODY_SIZE = 2 * 1024 * 1024; // 2MB limite de segurança contra DoS
 
-// Supabase Client
+// Supabase Client (suporte a service_role para RLS restrito)
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
 let supabase = null;
@@ -36,13 +40,11 @@ if (supabaseUrl && supabaseKey) {
   }
 }
 
-// Garante que os diretórios necessários existam (com fallback seguro para serverless read-only)
+// Garante que os diretórios necessários existam
 try {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
   if (!fs.existsSync(BACKUPS_DIR)) fs.mkdirSync(BACKUPS_DIR, { recursive: true });
-} catch (fsErr) {
-  // Ambientes serverless efêmeros (ex: Vercel /var/task) possuem sistema de arquivos somente leitura
-}
+} catch (fsErr) {}
 
 function salvarBackupSnapshot(dadosAtuais) {
   try {
@@ -63,6 +65,88 @@ function salvarBackupSnapshot(dadosAtuais) {
   } catch (err) {
     console.warn('[SenaClube] Erro ao gerar snapshot de backup:', err.message);
   }
+}
+
+function validarDezenasConcurso(dezenas) {
+  if (!Array.isArray(dezenas) || dezenas.length !== 6) return null;
+  const normalizadas = [];
+  for (const d of dezenas) {
+    const num = parseInt(d, 10);
+    if (isNaN(num) || num < 1 || num > 60 || normalizadas.includes(num)) {
+      return null;
+    }
+    normalizadas.push(num);
+  }
+  return normalizadas.sort((a, b) => a - b).map(n => String(n).padStart(2, '0'));
+}
+
+function validarRegrasFechamentoServidor(incomingCiclos, existingCiclos) {
+  if (!Array.isArray(incomingCiclos) || !Array.isArray(existingCiclos)) return { valid: true };
+
+  const existingMap = new Map();
+  existingCiclos.forEach(c => {
+    if (c && c.id !== undefined) existingMap.set(String(c.id), c);
+  });
+
+  const now = Date.now();
+
+  for (const inCiclo of incomingCiclos) {
+    if (!inCiclo || inCiclo.id === undefined) continue;
+    const existing = existingMap.get(String(inCiclo.id));
+    if (!existing) continue;
+
+    const estavaFechado = existing.status === 'finalizado' || existing.faseApostas === 'fechada';
+    const prazoExpirado = existing.dataLimiteApostas && (now >= new Date(existing.dataLimiteApostas).getTime());
+
+    if (existing.status === 'finalizado' && inCiclo.status !== 'finalizado') {
+      return {
+        valid: false,
+        error: `A edição "${existing.nome}" já foi finalizada e não pode ser reaberta via API.`
+      };
+    }
+
+    if (prazoExpirado && inCiclo.faseApostas === 'aberta') {
+      return {
+        valid: false,
+        error: `O prazo limite de inscrições da edição "${existing.nome}" já expirou. Não é permitido reabrir apostas.`
+      };
+    }
+
+    if (estavaFechado) {
+      const existingApostas = existing.apostas || [];
+      const incomingApostas = inCiclo.apostas || [];
+
+      if (incomingApostas.length !== existingApostas.length) {
+        return {
+          valid: false,
+          error: `Apostas fechadas na edição "${existing.nome}". Não é permitido adicionar ou excluir apostas.`
+        };
+      }
+
+      const existingApostaMap = new Map();
+      existingApostas.forEach(a => existingApostaMap.set(String(a.id), a));
+
+      for (const inAp of incomingApostas) {
+        const exAp = existingApostaMap.get(String(inAp.id));
+        if (!exAp) {
+          return {
+            valid: false,
+            error: `Aposta não reconhecida enviada para a edição fechada "${existing.nome}".`
+          };
+        }
+        const exDez = (exAp.dezenas || []).slice().sort((a, b) => a - b).join(',');
+        const inDez = (inAp.dezenas || []).slice().sort((a, b) => a - b).join(',');
+        if (exDez !== inDez) {
+          return {
+            valid: false,
+            error: `As dezenas da aposta de "${inAp.nome}" não podem ser modificadas com apostas fechadas.`
+          };
+        }
+      }
+    }
+  }
+
+  return { valid: true };
 }
 
 // Tipos MIME comuns
@@ -99,7 +183,7 @@ async function fetchCaixaConcurso(numero = null) {
     : `https://servicebus2.caixa.gov.br/portaldeloterias/api/megasena`;
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8000);
+  const timeout = setTimeout(() => controller.abort(), 5000);
 
   try {
     const res = await fetch(url, {
@@ -113,41 +197,49 @@ async function fetchCaixaConcurso(numero = null) {
     });
     clearTimeout(timeout);
 
-    if (!res.ok) throw new Error(`Status Caixa ${res.status}`);
+    if (res.ok) {
+      const data = await res.json();
+      const numRetornado = parseInt(data.numero, 10);
+      const dezenasValidadas = validarDezenasConcurso(data.listaDezenas || data.dezenasSorteadasOrdemSorteio);
 
-    const data = await res.json();
-    const result = {
-      numero: data.numero,
-      dataApuracao: data.dataApuracao,
-      dezenas: data.listaDezenas || data.dezenasSorteadasOrdemSorteio || [],
-      acumulado: data.acumulado,
-      valorAcumuladoProximoConcurso: data.valorAcumuladoProximoConcurso,
-      nomeMunicipioUFSorteio: data.nomeMunicipioUFSorteio || '',
-      fonte: 'oficial_caixa'
-    };
-
-    CAIXA_CACHE.set(cacheKey, { timestamp: Date.now(), data: result });
-    return result;
+      if (numRetornado && (!numero || numRetornado === numero) && dezenasValidadas) {
+        const result = {
+          numero: numRetornado,
+          dataApuracao: data.dataApuracao || '',
+          dezenas: dezenasValidadas,
+          acumulado: !!data.acumulado,
+          valorAcumuladoProximoConcurso: data.valorAcumuladoProximoConcurso || 0,
+          nomeMunicipioUFSorteio: data.nomeMunicipioUFSorteio || '',
+          fonte: 'oficial_caixa'
+        };
+        CAIXA_CACHE.set(cacheKey, { timestamp: Date.now(), data: result });
+        return result;
+      }
+    }
   } catch (err) {
     clearTimeout(timeout);
-    console.warn(`[Caixa API] Falha na busca primária (${url}):`, err.message);
+  }
 
-    // 2. Espelho Guidi
-    try {
-      const guidiUrl = numero
-        ? `https://api.guidi.dev.br/loteria/megasena/${numero}`
-        : `https://api.guidi.dev.br/loteria/megasena/ultimo`;
-      const guidiCtrl = new AbortController();
-      const guidiTimeout = setTimeout(() => guidiCtrl.abort(), 6000);
-      const guidiRes = await fetch(guidiUrl, { signal: guidiCtrl.signal });
-      clearTimeout(guidiTimeout);
-      if (guidiRes.ok) {
-        const gData = await guidiRes.json();
+  // 2. Espelho Guidi
+  try {
+    const guidiUrl = numero
+      ? `https://api.guidi.dev.br/loteria/megasena/${numero}`
+      : `https://api.guidi.dev.br/loteria/megasena/ultimo`;
+    const guidiCtrl = new AbortController();
+    const guidiTimeout = setTimeout(() => guidiCtrl.abort(), 5000);
+    const guidiRes = await fetch(guidiUrl, { signal: guidiCtrl.signal });
+    clearTimeout(guidiTimeout);
+    if (guidiRes.ok) {
+      const gData = await guidiRes.json();
+      const numRetornado = parseInt(gData.numero, 10);
+      const dezenasValidadas = validarDezenasConcurso(gData.listaDezenas || gData.dezenasSorteadasOrdemSorteio);
+
+      if (numRetornado && (!numero || numRetornado === numero) && dezenasValidadas) {
         const fallbackResult = {
-          numero: gData.numero,
+          numero: numRetornado,
           dataApuracao: gData.dataApuracao || '',
-          dezenas: gData.listaDezenas || gData.dezenasSorteadasOrdemSorteio || [],
-          acumulado: gData.acumulado || false,
+          dezenas: dezenasValidadas,
+          acumulado: !!gData.acumulado,
           valorAcumuladoProximoConcurso: gData.valorAcumuladoProximoConcurso || 0,
           nomeMunicipioUFSorteio: gData.nomeMunicipioUFSorteio || '',
           fonte: 'espelho_guidi'
@@ -155,26 +247,29 @@ async function fetchCaixaConcurso(numero = null) {
         CAIXA_CACHE.set(cacheKey, { timestamp: Date.now(), data: fallbackResult });
         return fallbackResult;
       }
-    } catch (guidiErr) {
-      console.warn('[Caixa API] Falha no espelho Guidi:', guidiErr.message);
     }
+  } catch (guidiErr) {}
 
-    // 3. Espelho Heroku
-    try {
-      const mirrorUrl = numero
-        ? `https://loteriascaixa-api.herokuapp.com/api/megasena/${numero}`
-        : `https://loteriascaixa-api.herokuapp.com/api/megasena/latest`;
-      const mCtrl = new AbortController();
-      const mTimeout = setTimeout(() => mCtrl.abort(), 6000);
-      const mirrorRes = await fetch(mirrorUrl, { signal: mCtrl.signal });
-      clearTimeout(mTimeout);
-      if (mirrorRes.ok) {
-        const mData = await mirrorRes.json();
+  // 3. Espelho Heroku
+  try {
+    const mirrorUrl = numero
+      ? `https://loteriascaixa-api.herokuapp.com/api/megasena/${numero}`
+      : `https://loteriascaixa-api.herokuapp.com/api/megasena/latest`;
+    const mCtrl = new AbortController();
+    const mTimeout = setTimeout(() => mCtrl.abort(), 5000);
+    const mirrorRes = await fetch(mirrorUrl, { signal: mCtrl.signal });
+    clearTimeout(mTimeout);
+    if (mirrorRes.ok) {
+      const mData = await mirrorRes.json();
+      const numRetornado = parseInt(mData.concurso || mData.numero, 10);
+      const dezenasValidadas = validarDezenasConcurso(mData.dezenas);
+
+      if (numRetornado && (!numero || numRetornado === numero) && dezenasValidadas) {
         const fallbackResult = {
-          numero: mData.concurso || mData.numero,
+          numero: numRetornado,
           dataApuracao: mData.data || mData.dataApuracao || '',
-          dezenas: mData.dezenas || [],
-          acumulado: mData.acumulou || false,
+          dezenas: dezenasValidadas,
+          acumulado: !!(mData.acumulou || mData.acumulado),
           valorAcumuladoProximoConcurso: mData.valorAcumuladoProximoConcurso || 0,
           nomeMunicipioUFSorteio: mData.local || '',
           fonte: 'espelho_loterias'
@@ -182,18 +277,17 @@ async function fetchCaixaConcurso(numero = null) {
         CAIXA_CACHE.set(cacheKey, { timestamp: Date.now(), data: fallbackResult });
         return fallbackResult;
       }
-    } catch (mirrorErr) {
-      console.warn('[Caixa API] Falha no espelho Heroku:', mirrorErr.message);
     }
-    throw err;
-  }
+  } catch (mirrorErr) {}
+
+  throw new Error('Não foi possível obter dados válidos da Caixa ou de seus espelhos.');
 }
 
 const server = http.createServer(async (req, res) => {
   // Cabeçalhos de Segurança OWASP e CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Client-Version');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Client-Version, X-Force-Save');
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
@@ -212,18 +306,27 @@ const server = http.createServer(async (req, res) => {
     if (!pathname.startsWith('/')) pathname = '/' + pathname;
   }
 
+  const clientIp = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'global').split(',')[0].trim();
+
+  // Função auxiliar para leitura segura de body com limite de tamanho
+  const lerBodySeguro = () => new Promise((resolve, reject) => {
+    let body = '';
+    let bodyLength = 0;
+    req.on('data', chunk => {
+      bodyLength += chunk.length;
+      if (bodyLength > MAX_BODY_SIZE) {
+        req.destroy();
+        reject(new Error('PAYLOAD_TOO_LARGE'));
+        return;
+      }
+      body += chunk;
+    });
+    req.on('end', () => resolve(body));
+    req.on('error', err => reject(err));
+  });
+
   // --- API: Autenticação & Credenciais de Administrador ---
   if (pathname === '/api/auth') {
-    if (req.method === 'OPTIONS') {
-      res.writeHead(204, {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-      });
-      return res.end();
-    }
-
-    // GET: Perfil do Administrador
     if (req.method === 'GET') {
       const authHeader = req.headers.authorization || req.headers['authorization'] || '';
       if (!verifyToken(authHeader)) {
@@ -240,72 +343,86 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
-    let body = '';
-    req.on('data', chunk => { body += chunk; });
-    req.on('end', async () => {
-      try {
-        const parsed = JSON.parse(body || '{}');
+    try {
+      const rawBody = await lerBodySeguro();
+      const parsed = JSON.parse(rawBody || '{}');
 
-        // Alteração de Credenciais
-        const isChangeAction = req.method === 'PUT' || (req.method === 'POST' && (parsed.action === 'change-credentials' || parsed.currentPassword || parsed.senhaAtual));
+      // Alteração de Credenciais
+      const isChangeAction = req.method === 'PUT' || (req.method === 'POST' && (parsed.action === 'change-credentials' || parsed.currentPassword || parsed.senhaAtual));
 
-        if (isChangeAction) {
-          const authHeader = req.headers.authorization || req.headers['authorization'] || '';
-          if (!verifyToken(authHeader)) {
-            res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
-            return res.end(JSON.stringify({
-              success: false,
-              error: 'É necessário estar autenticado como administrador para alterar credenciais.'
-            }));
-          }
-
-          const currentPassword = parsed.currentPassword || parsed.senhaAtual;
-          const newUsername = parsed.newUsername || parsed.novoUsuario;
-          const newPassword = parsed.newPassword || parsed.novaSenha;
-
-          const result = await updateAdminCredentials({ currentPassword, newUsername, newPassword });
-          const statusCode = result.success ? 200 : 400;
-          res.writeHead(statusCode, { 'Content-Type': 'application/json; charset=utf-8' });
-          return res.end(JSON.stringify(result));
-        }
-
-        // Login Normal
-        if (req.method === 'POST') {
-          const username = parsed.username || parsed.usuario || 'admin';
-          const password = parsed.password || parsed.senha;
-
-          if (!password) {
-            res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
-            return res.end(JSON.stringify({ success: false, error: 'A senha é obrigatória.' }));
-          }
-
-          const isValid = await verifyAdminLogin(username, password);
-          if (!isValid) {
-            res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
-            return res.end(JSON.stringify({
-              success: false,
-              error: 'Credencial inválida. Usuário ou senha incorretos.'
-            }));
-          }
-
-          const token = generateToken();
-          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      if (isChangeAction) {
+        const authHeader = req.headers.authorization || req.headers['authorization'] || '';
+        if (!verifyToken(authHeader)) {
+          res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
           return res.end(JSON.stringify({
-            success: true,
-            message: 'Autenticado com sucesso!',
-            token,
-            username
+            success: false,
+            error: 'É necessário estar autenticado como administrador para alterar credenciais.'
           }));
         }
 
-        res.writeHead(405, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify({ error: 'Método não permitido' }));
-      } catch (err) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify({ error: 'JSON inválido', details: err.message }));
+        const currentPassword = parsed.currentPassword || parsed.senhaAtual;
+        const newUsername = parsed.newUsername || parsed.novoUsuario;
+        const newPassword = parsed.newPassword || parsed.novaSenha;
+
+        const result = await updateAdminCredentials({ currentPassword, newUsername, newPassword });
+        const statusCode = result.success ? 200 : 400;
+        res.writeHead(statusCode, { 'Content-Type': 'application/json; charset=utf-8' });
+        return res.end(JSON.stringify(result));
       }
-    });
-    return;
+
+      // Login Normal
+      if (req.method === 'POST') {
+        const rateCheck = checkRateLimit(clientIp);
+        if (!rateCheck.allowed) {
+          res.writeHead(429, { 'Content-Type': 'application/json; charset=utf-8' });
+          return res.end(JSON.stringify({
+            success: false,
+            error: rateCheck.error,
+            remainingSeconds: rateCheck.remainingSeconds
+          }));
+        }
+
+        const username = parsed.username || parsed.usuario || 'admin';
+        const password = parsed.password || parsed.senha;
+
+        if (!password) {
+          res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+          return res.end(JSON.stringify({ success: false, error: 'A senha é obrigatória.' }));
+        }
+
+        const isValid = await verifyAdminLogin(username, password);
+        if (!isValid) {
+          recordLoginAttempt(clientIp, false);
+          res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
+          return res.end(JSON.stringify({
+            success: false,
+            error: 'Credencial inválida. Usuário ou senha incorretos.'
+          }));
+        }
+
+        recordLoginAttempt(clientIp, true);
+        const stored = await loadStoredCredentials();
+        const token = generateToken(stored ? stored.tokenVersion : 1, stored ? stored.updatedAt : null);
+
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        return res.end(JSON.stringify({
+          success: true,
+          message: 'Autenticado com sucesso!',
+          token,
+          username
+        }));
+      }
+
+      res.writeHead(405, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Método não permitido' }));
+    } catch (err) {
+      if (err.message === 'PAYLOAD_TOO_LARGE') {
+        res.writeHead(413, { 'Content-Type': 'application/json; charset=utf-8' });
+        return res.end(JSON.stringify({ success: false, error: 'Corpo da requisição excede o limite máximo permitido (2MB).' }));
+      }
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'JSON inválido', details: err.message }));
+    }
   }
 
   // --- API: Buscar concurso da Caixa ---
@@ -380,116 +497,151 @@ const server = http.createServer(async (req, res) => {
         }));
       }
 
-      let body = '';
-      req.on('data', chunk => { body += chunk; });
-      req.on('end', async () => {
-        try {
-          const rawParsed = JSON.parse(body);
-          const parsed = sanitizePayload(rawParsed);
+      try {
+        const rawBody = await lerBodySeguro();
+        const rawParsed = JSON.parse(rawBody);
+        const parsed = sanitizePayload(rawParsed);
 
-          // 2. Validação de Schema
-          const validation = validateBolaoPayload(parsed);
-          if (!validation.valid) {
-            res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
-            return res.end(JSON.stringify({ success: false, error: validation.error }));
-          }
-
-          // 3. Concorrência e Snapshot Local
-          let currentVersion = 0;
-          let currentData = null;
-
-          if (supabase) {
-            try {
-              const { data: supData } = await supabase
-                .from('bolao_data')
-                .select('estado_json')
-                .eq('id', 'sena_clube_master')
-                .single();
-              if (supData && supData.estado_json) {
-                currentVersion = supData.estado_json.version || 0;
-                currentData = supData.estado_json;
-              }
-            } catch (supErr) {
-              console.warn('[Supabase Concurrency Check] Aviso:', supErr.message);
-            }
-          }
-
-          if (currentVersion === 0 && fs.existsSync(DATA_FILE)) {
-            try {
-              currentData = JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
-              currentVersion = currentData.version || 0;
-            } catch {}
-          }
-
-          const clientVersion = typeof parsed.version === 'number' ? parsed.version : 0;
-          const forceSave = req.headers['x-force-save'] === 'true' || parsed.forceSave === true;
-
-          if (!forceSave && currentVersion > 0 && clientVersion > 0 && currentVersion > clientVersion) {
-            res.writeHead(409, { 'Content-Type': 'application/json; charset=utf-8' });
-            return res.end(JSON.stringify({
-              success: false,
-              conflict: true,
-              error: 'Conflito de Concorrência: os dados foram atualizados em outro dispositivo. Recarregue a página antes de salvar.',
-              serverVersion: currentVersion,
-              clientVersion
-            }));
-          }
-
-          if (currentData) {
-            salvarBackupSnapshot(currentData);
-          }
-
-          const nextVersion = Math.max(currentVersion, clientVersion) + 1;
-          parsed.version = nextVersion;
-          parsed.savedAt = new Date().toISOString();
-
-          // Salva localmente
-          try {
-            if (fs.existsSync(DATA_DIR)) {
-              fs.writeFileSync(DATA_FILE, JSON.stringify(parsed, null, 2), 'utf-8');
-            }
-          } catch (localErr) {
-            console.warn('[SenaClube] Erro de gravação local em disco:', localErr.message);
-          }
-
-          // Salva no Supabase se disponível
-          if (supabase) {
-            try {
-              const { error } = await supabase
-                .from('bolao_data')
-                .upsert({
-                  id: 'sena_clube_master',
-                  nome_bolao: parsed.nomeBolao || 'Bolão Mega Sena dos amigos',
-                  taxa_organizador_global: parsed.taxaOrganizadorGlobal || 0.20,
-                  ciclo_visualizado_id: parsed.cicloVisualizadoId || 1,
-                  estado_json: parsed,
-                  updated_at: new Date().toISOString()
-                }, { onConflict: 'id' });
-
-              if (error) {
-                console.error('[Supabase POST] Erro upsert:', error.message);
-              }
-            } catch (supErr) {
-              console.error('[Supabase POST] Erro de rede:', supErr.message);
-            }
-          }
-
-          res.writeHead(200, {
-            'Content-Type': 'application/json; charset=utf-8',
-            'Cache-Control': 'no-store, no-cache, must-revalidate'
-          });
-          res.end(JSON.stringify({
-            success: true,
-            message: 'Dados salvos com sucesso!',
-            version: nextVersion,
-            savedAt: parsed.savedAt
-          }));
-        } catch (err) {
-          console.error('[SenaClube] Erro ao salvar POST /api/bolao:', err);
+        // 2. Validação Estrita de Schema
+        const validation = validateBolaoPayload(parsed);
+        if (!validation.valid) {
           res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
-          res.end(JSON.stringify({ error: 'JSON inválido', details: err.message }));
+          return res.end(JSON.stringify({ success: false, error: validation.error }));
         }
-      });
+
+        // 3. Concorrência e Snapshot Local
+        let currentVersion = 0;
+        let currentData = null;
+
+        if (supabase) {
+          try {
+            const { data: supData } = await supabase
+              .from('bolao_data')
+              .select('estado_json')
+              .eq('id', 'sena_clube_master')
+              .single();
+            if (supData && supData.estado_json) {
+              currentVersion = supData.estado_json.version || 0;
+              currentData = supData.estado_json;
+            }
+          } catch (supErr) {
+            console.warn('[Supabase Concurrency Check] Aviso:', supErr.message);
+          }
+        }
+
+        if (currentVersion === 0 && fs.existsSync(DATA_FILE)) {
+          try {
+            currentData = JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
+            currentVersion = currentData.version || 0;
+          } catch {}
+        }
+
+        // 4. Validação Server-side de Edição Fechada
+        if (currentData && currentData.ciclos) {
+          const regraCheck = validarRegrasFechamentoServidor(parsed.ciclos, currentData.ciclos);
+          if (!regraCheck.valid) {
+            res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' });
+            return res.end(JSON.stringify({ success: false, error: regraCheck.error }));
+          }
+        }
+
+        const clientVersion = typeof parsed.version === 'number' ? parsed.version : 0;
+        const forceSave = req.headers['x-force-save'] === 'true' || parsed.forceSave === true;
+
+        if (!forceSave && currentVersion > 0 && clientVersion > 0 && currentVersion > clientVersion) {
+          res.writeHead(409, { 'Content-Type': 'application/json; charset=utf-8' });
+          return res.end(JSON.stringify({
+            success: false,
+            conflict: true,
+            error: 'Conflito de Concorrência: os dados foram atualizados em outro dispositivo. Recarregue a página antes de salvar.',
+            serverVersion: currentVersion,
+            clientVersion
+          }));
+        }
+
+        if (currentData) {
+          salvarBackupSnapshot(currentData);
+        }
+
+        const nextVersion = Math.max(currentVersion, clientVersion) + 1;
+        parsed.version = nextVersion;
+        parsed.savedAt = new Date().toISOString();
+
+        let gravouLocal = false;
+        let gravouSupabase = false;
+        let erroSupabase = null;
+
+        // Salva localmente
+        try {
+          if (fs.existsSync(DATA_DIR)) {
+            fs.writeFileSync(DATA_FILE, JSON.stringify(parsed, null, 2), 'utf-8');
+            gravouLocal = true;
+          }
+        } catch (localErr) {
+          console.warn('[SenaClube] Erro de gravação local em disco:', localErr.message);
+        }
+
+        // Salva no Supabase se disponível
+        if (supabase) {
+          try {
+            const taxaGlobal = typeof parsed.taxaOrganizadorGlobal === 'number'
+              ? parsed.taxaOrganizadorGlobal
+              : 0.20;
+
+            const { error } = await supabase
+              .from('bolao_data')
+              .upsert({
+                id: 'sena_clube_master',
+                nome_bolao: parsed.nomeBolao || 'Bolão Mega Sena dos amigos',
+                taxa_organizador_global: taxaGlobal,
+                ciclo_visualizado_id: parsed.cicloVisualizadoId || 1,
+                estado_json: parsed,
+                updated_at: new Date().toISOString()
+              }, { onConflict: 'id' });
+
+            if (!error) {
+              gravouSupabase = true;
+            } else {
+              erroSupabase = error.message;
+              console.error('[Supabase POST] Erro upsert:', error.message);
+            }
+          } catch (supErr) {
+            erroSupabase = supErr.message;
+            console.error('[Supabase POST] Erro de rede:', supErr.message);
+          }
+        }
+
+        // Garantia de persistência durável: nunca retorna 200 se a gravação falhou
+        if (!gravouLocal && !gravouSupabase) {
+          res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+          return res.end(JSON.stringify({
+            success: false,
+            error: 'Falha crítica: Não foi possível gravar as alterações nem em disco nem no banco de dados.',
+            details: erroSupabase
+          }));
+        }
+
+        res.writeHead(200, {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Cache-Control': 'no-store, no-cache, must-revalidate'
+        });
+        res.end(JSON.stringify({
+          success: true,
+          message: 'Dados salvos com sucesso!',
+          version: nextVersion,
+          savedAt: parsed.savedAt,
+          savedLocally: gravouLocal,
+          savedRemotely: gravouSupabase
+        }));
+      } catch (err) {
+        if (err.message === 'PAYLOAD_TOO_LARGE') {
+          res.writeHead(413, { 'Content-Type': 'application/json; charset=utf-8' });
+          return res.end(JSON.stringify({ success: false, error: 'Corpo da requisição excede o limite máximo permitido (2MB).' }));
+        }
+        console.error('[SenaClube] Erro ao salvar POST /api/bolao:', err);
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: 'Erro no processamento da requisição', details: err.message }));
+      }
       return;
     }
   }

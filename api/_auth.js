@@ -9,22 +9,97 @@ const __dirname = path.dirname(__filename);
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const AUTH_FILE = path.join(DATA_DIR, 'admin-auth.json');
 
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'sena2026!';
-const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_SECRET_KEY || 'sena-clube-jwt-secret-salt-2026';
+const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
+let ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+let JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_SECRET_KEY;
 
-// Supabase Client
+if (isProduction) {
+  if (!ADMIN_PASSWORD) {
+    console.warn('[Segurança Crítica] ADMIN_PASSWORD não configurada em produção! Usando valor temporário.');
+  }
+  if (!JWT_SECRET) {
+    console.warn('[Segurança Crítica] JWT_SECRET não configurada em produção! Usando valor temporário.');
+  }
+}
+
+ADMIN_PASSWORD = ADMIN_PASSWORD || 'sena2026!';
+JWT_SECRET = JWT_SECRET || 'sena-clube-jwt-secret-salt-2026';
+
+// Supabase Client (prefere service_role para operações de backend)
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
 let supabase = null;
 if (supabaseUrl && supabaseKey) {
   try {
     supabase = createClient(supabaseUrl, supabaseKey);
-  } catch {}
+  } catch (err) {
+    console.warn('[Auth] Falha ao inicializar Supabase client:', err.message);
+  }
 }
 
 let cachedAuth = null;
 let cacheTime = 0;
 const CACHE_TTL_MS = 60 * 1000; // 1 minuto em cache
+
+// Controle de taxa de tentativas de login (Rate Limiting)
+const LOGIN_ATTEMPTS = new Map();
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_PERIOD_MS = 15 * 60 * 1000; // 15 minutos
+
+/**
+ * Verifica se o IP / identificador excedeu o limite de tentativas
+ * @param {string} identifier 
+ * @returns {{ allowed: boolean, remainingSeconds?: number, error?: string }}
+ */
+export function checkRateLimit(identifier) {
+  const key = identifier || 'global';
+  const record = LOGIN_ATTEMPTS.get(key);
+  if (!record) return { allowed: true };
+
+  const now = Date.now();
+  if (now - record.firstAttempt > LOCKOUT_PERIOD_MS) {
+    LOGIN_ATTEMPTS.delete(key);
+    return { allowed: true };
+  }
+
+  if (record.count >= MAX_ATTEMPTS) {
+    const remainingSeconds = Math.ceil((record.firstAttempt + LOCKOUT_PERIOD_MS - now) / 1000);
+    return {
+      allowed: false,
+      remainingSeconds,
+      error: `Muitas tentativas de login incorretas. Aguarde ${remainingSeconds} segundos antes de tentar novamente.`
+    };
+  }
+
+  return { allowed: true };
+}
+
+/**
+ * Registra o resultado da tentativa de login
+ * @param {string} identifier 
+ * @param {boolean} success 
+ */
+export function recordLoginAttempt(identifier, success) {
+  const key = identifier || 'global';
+  if (success) {
+    LOGIN_ATTEMPTS.delete(key);
+    return;
+  }
+  const now = Date.now();
+  const record = LOGIN_ATTEMPTS.get(key);
+  if (!record || (now - record.firstAttempt > LOCKOUT_PERIOD_MS)) {
+    LOGIN_ATTEMPTS.set(key, { count: 1, firstAttempt: now });
+  } else {
+    record.count += 1;
+  }
+}
+
+/**
+ * Limpa o histórico de rate limit (útil para testes)
+ */
+export function resetRateLimit() {
+  LOGIN_ATTEMPTS.clear();
+}
 
 /**
  * Gera hash criptográfico Scrypt com salt aleatório
@@ -58,32 +133,58 @@ export function verifyPassword(password, storedHash, salt) {
 }
 
 /**
- * Carrega as credenciais salvas (Supabase com fallback para arquivo local)
+ * Carrega as credenciais salvas (Supabase admin_auth com fallback seguro)
  * @param {boolean} forceReload 
- * @returns {Promise<{ username: string, passwordHash: string, salt: string, updatedAt: string } | null>}
+ * @returns {Promise<{ username: string, passwordHash: string, salt: string, tokenVersion: number, updatedAt: string } | null>}
  */
 export async function loadStoredCredentials(forceReload = false) {
   if (!forceReload && cachedAuth && (Date.now() - cacheTime < CACHE_TTL_MS)) {
     return cachedAuth;
   }
 
-  // 1. Tenta carregar do Supabase
+  // 1. Tenta carregar da tabela privada 'admin_auth' do Supabase
   if (supabase) {
     try {
       const { data, error } = await supabase
-        .from('bolao_data')
+        .from('admin_auth')
         .select('*')
         .eq('id', 'sena_clube_admin_auth')
         .maybeSingle();
 
-      if (!error && data && data.estado_json && data.estado_json.passwordHash) {
-        cachedAuth = data.estado_json;
+      if (!error && data && data.password_hash) {
+        cachedAuth = {
+          username: data.username || 'admin',
+          passwordHash: data.password_hash,
+          salt: data.salt,
+          tokenVersion: data.token_version || 1,
+          updatedAt: data.updated_at
+        };
         cacheTime = Date.now();
+
         // Sincroniza localmente se possível
         try {
           if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
           fs.writeFileSync(AUTH_FILE, JSON.stringify(cachedAuth, null, 2), 'utf-8');
         } catch {}
+        return cachedAuth;
+      }
+
+      // Fallback de transição para a tabela antiga bolao_data caso a migration ainda esteja pendente
+      const { data: legacyData } = await supabase
+        .from('bolao_data')
+        .select('*')
+        .eq('id', 'sena_clube_admin_auth')
+        .maybeSingle();
+
+      if (legacyData && legacyData.estado_json && legacyData.estado_json.passwordHash) {
+        cachedAuth = {
+          username: legacyData.estado_json.username || 'admin',
+          passwordHash: legacyData.estado_json.passwordHash,
+          salt: legacyData.estado_json.salt,
+          tokenVersion: legacyData.estado_json.tokenVersion || 1,
+          updatedAt: legacyData.estado_json.updatedAt || legacyData.updated_at
+        };
+        cacheTime = Date.now();
         return cachedAuth;
       }
     } catch (err) {
@@ -97,7 +198,13 @@ export async function loadStoredCredentials(forceReload = false) {
       const content = fs.readFileSync(AUTH_FILE, 'utf-8');
       const parsed = JSON.parse(content);
       if (parsed && parsed.passwordHash) {
-        cachedAuth = parsed;
+        cachedAuth = {
+          username: parsed.username || 'admin',
+          passwordHash: parsed.passwordHash,
+          salt: parsed.salt,
+          tokenVersion: parsed.tokenVersion || 1,
+          updatedAt: parsed.updatedAt || new Date().toISOString()
+        };
         cacheTime = Date.now();
         return cachedAuth;
       }
@@ -110,38 +217,60 @@ export async function loadStoredCredentials(forceReload = false) {
 }
 
 /**
- * Persiste as novas credenciais no Supabase e em arquivo local
- * @param {{ username: string, passwordHash: string, salt: string, updatedAt: string }} credentials 
+ * Persiste as novas credenciais no Supabase (admin_auth) e em arquivo local
+ * @param {{ username: string, passwordHash: string, salt: string, tokenVersion?: number, updatedAt: string }} credentials 
  */
 export async function saveStoredCredentials(credentials) {
   cachedAuth = credentials;
   cacheTime = Date.now();
 
+  let gravouLocal = false;
+  let gravouRemoto = false;
+  let erroRemoto = null;
+
   // 1. Salva localmente (se ambiente permitir escrita)
   try {
     if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
     fs.writeFileSync(AUTH_FILE, JSON.stringify(credentials, null, 2), 'utf-8');
+    gravouLocal = true;
   } catch {}
 
-  // 2. Salva no Supabase (para persistência serverless/Vercel)
+  // 2. Salva no Supabase (tabela privada admin_auth)
   if (supabase) {
     try {
       const { error } = await supabase
-        .from('bolao_data')
+        .from('admin_auth')
         .upsert({
           id: 'sena_clube_admin_auth',
-          nome_bolao: 'Admin Credentials',
-          estado_json: credentials,
-          updated_at: new Date().toISOString()
+          username: credentials.username,
+          password_hash: credentials.passwordHash,
+          salt: credentials.salt,
+          token_version: credentials.tokenVersion || 1,
+          updated_at: credentials.updatedAt
         }, { onConflict: 'id' });
 
-      if (error) {
-        console.error('[Auth Supabase] Erro ao salvar credenciais:', error.message);
+      if (!error) {
+        gravouRemoto = true;
+        // Limpa registro antigo de bolao_data caso ainda exista
+        try {
+          await supabase.from('bolao_data').delete().eq('id', 'sena_clube_admin_auth');
+        } catch {}
+      } else {
+        erroRemoto = error.message;
+        console.error('[Auth Supabase] Erro ao salvar credenciais em admin_auth:', error.message);
       }
     } catch (supErr) {
+      erroRemoto = supErr.message;
       console.error('[Auth Supabase] Erro de rede ao salvar credenciais:', supErr.message);
     }
   }
+
+  // Se nenhum dos destinos conseguiu gravar, lançar erro para não emitir falso sucesso
+  if (!gravouLocal && !gravouRemoto) {
+    throw new Error(`Falha crítica de persistência de credenciais: ${erroRemoto || 'Nenhum meio de armazenamento durável disponível.'}`);
+  }
+
+  return { gravouLocal, gravouRemoto };
 }
 
 /**
@@ -216,17 +345,23 @@ export async function updateAdminCredentials({ currentPassword, newUsername, new
 
   const { hash, salt } = hashPassword(cleanPass);
   const now = new Date().toISOString();
+  const nextTokenVersion = (stored && typeof stored.tokenVersion === 'number' ? stored.tokenVersion : 1) + 1;
 
   const newCredentials = {
     username: cleanUser,
     passwordHash: hash,
     salt,
+    tokenVersion: nextTokenVersion,
     updatedAt: now
   };
 
-  await saveStoredCredentials(newCredentials);
+  try {
+    await saveStoredCredentials(newCredentials);
+  } catch (err) {
+    return { success: false, error: `Erro ao salvar credenciais: ${err.message}` };
+  }
 
-  const newToken = generateToken();
+  const newToken = generateToken(nextTokenVersion, now);
   return {
     success: true,
     message: 'Credenciais do administrador atualizadas com sucesso!',
@@ -251,11 +386,16 @@ export async function getAdminProfile() {
 
 /**
  * Gera um token de sessão assinado com HMAC-SHA256 válido por 7 dias
+ * Inclui versão do token (tv) e data de corte para revogação em troca de senha
+ * @param {number} tokenVersion 
+ * @param {string|null} updatedAt 
  * @returns {string}
  */
-export function generateToken() {
+export function generateToken(tokenVersion = 1, updatedAt = null) {
   const payload = {
     role: 'admin',
+    tv: tokenVersion,
+    upd: updatedAt || (cachedAuth ? cachedAuth.updatedAt : null),
     iat: Date.now(),
     exp: Date.now() + 7 * 24 * 60 * 60 * 1000 // 7 dias de validade
   };
@@ -265,7 +405,8 @@ export function generateToken() {
 }
 
 /**
- * Valida a autenticidade e validade temporal do token de sessão
+ * Valida a autenticidade e validade temporal do token de sessão.
+ * Rejeita tokens emitidos antes da última alteração de credenciais (revogação ativa).
  * @param {string} authHeaderOrToken 
  * @returns {boolean}
  */
@@ -290,6 +431,20 @@ export function verifyToken(authHeaderOrToken) {
     const payload = JSON.parse(Buffer.from(str, 'base64url').toString('utf-8'));
     if (payload.role !== 'admin') return false;
     if (Date.now() > payload.exp) return false;
+
+    // Revogação de sessões antigas: se houver credenciais atualizadas
+    if (cachedAuth && cachedAuth.updatedAt) {
+      const authUpdateMs = new Date(cachedAuth.updatedAt).getTime();
+      // Se o token foi emitido antes da última atualização de senha (com tolerância de 2s para skew)
+      if (payload.iat && (payload.iat + 2000 < authUpdateMs)) {
+        return false;
+      }
+      if (typeof cachedAuth.tokenVersion === 'number' && typeof payload.tv === 'number') {
+        if (payload.tv < cachedAuth.tokenVersion) {
+          return false;
+        }
+      }
+    }
 
     return true;
   } catch {

@@ -7,3 +7,5 @@ node_modules/
 .vercel/
 data/backups/
 data/admin-auth.json
+dist/
+supabase/.temp/
